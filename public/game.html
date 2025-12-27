@@ -233,17 +233,6 @@
             });
         }
 
-        // Wait for Three.js to load
-        function waitForThree() {
-            return new Promise((resolve) => {
-                if (window.THREE) {
-                    resolve();
-                } else {
-                    setTimeout(() => waitForThree().then(resolve), 100);
-                }
-            });
-        }
-
         // Hide loading screen and show start overlay
         window.addEventListener('load', async () => {
             await waitForThree();

@@ -18,6 +18,7 @@ class Game3D {
     this.enemies = [];
     this.particles = [];
     this.clock = new THREE.Clock();
+    this.lastDelta = 0;
     
     // Input state
     this.keys = {};
@@ -678,7 +679,7 @@ class Game3D {
     // Ability cooldowns
     this.abilities.forEach((ability, index) => {
       if (ability.cooldown > 0) {
-        ability.cooldown -= this.clock.getDelta();
+        ability.cooldown -= this.lastDelta;
         if (ability.cooldown < 0) ability.cooldown = 0;
       }
       
@@ -733,7 +734,7 @@ class Game3D {
           height: 0;
           border-left: 10px solid transparent;
           border-right: 10px solid transparent;
-          border-bottom: 20px solid ${this.colors.enemy.toString(16).padStart(6, '0')};
+          border-bottom: 20px solid #${this.colors.enemy.toString(16).padStart(6, '0')};
           transform: translate(-50%, -50%) rotate(${angle + 90}deg);
           pointer-events: none;
           opacity: ${Math.max(0.3, 1 - distance / 50)};
@@ -1038,6 +1039,7 @@ class Game3D {
     requestAnimationFrame(() => this.animate());
     
     const delta = this.clock.getDelta();
+    this.lastDelta = delta;
     
     if (!this.paused) {
       this.updatePlayer(delta);
