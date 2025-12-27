@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conscience - Predictive World AI Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .tagline {
+            font-size: 1.2em;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .game-area {
+            display: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-area.active {
+            display: block;
+        }
+
+        .start-screen {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .profile-bars {
+            margin-bottom: 30px;
+        }
+
+        .profile-item {
+            margin-bottom: 15px;
+        }
+
+        .profile-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .profile-bar {
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .profile-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .encounter-area {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .encounter-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            padding: 12px 20px;
+            font-size: 1em;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-btn.attack {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .action-btn.defend {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+        }
+
+        .action-btn.help {
+            background: linear-gradient(135deg, #95e1d3 0%, #38ada9 100%);
+        }
+
+        .action-btn.betray {
+            background: linear-gradient(135deg, #574b90 0%, #2d3561 100%);
+        }
+
+        .action-btn.explore {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .action-btn.plan {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .action-btn:hover {
+            transform: scale(1.05);
+            border-color: white;
+        }
+
+        .world-changes {
+            background: rgba(255, 215, 0, 0.1);
+            border-left: 4px solid #ffd700;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .world-changes h3 {
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+
+        .world-changes ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .world-changes li {
+            margin: 5px 0;
+        }
+
+        .world-changes li:before {
+            content: "⚡ ";
+            color: #ffd700;
+        }
+
+        .predictions {
+            background: rgba(138, 43, 226, 0.2);
+            border-left: 4px solid #8a2be2;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .predictions h3 {
+            margin-bottom: 10px;
+            color: #da70d6;
+        }
+
+        .log {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        .moral-choice {
+            background: rgba(255, 69, 0, 0.2);
+            border: 2px solid #ff4500;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .moral-choice h3 {
+            color: #ff6347;
+            margin-bottom: 15px;
+        }
+
+        .choice-option {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .choice-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(10px);
+        }
+
+        .consequence {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ CONSCIENCE ⚡</h1>
+            <p class="tagline">The game that knows you better than you know yourself</p>
+        </header>
+
+        <div class="start-screen" id="startScreen">
+            <h2>Welcome to Conscience</h2>
+            <p style="margin: 20px 0; font-size: 1.1em;">
+                The game is alive, and it knows what you want to do before you do it.<br>
+                It manipulates the world, enemies, and story to challenge your decisions in real-time.<br>
+                Every run is personalized to you — no two players experience the same world.
+            </p>
+            <button class="btn" onclick="startGame()">Begin Your Journey</button>
+        </div>
+
+        <div class="game-area" id="gameArea">
+            <div class="status-panel">
+                <div class="stat-card">
+                    <div class="stat-label">Session Score</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Actions Taken</div>
+                    <div class="stat-value" id="actionCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">World State</div>
+                    <div class="stat-value" id="worldState">Neutral</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Choices Made</div>
+                    <div class="stat-value" id="choiceCount">0</div>
+                </div>
+            </div>
+
+            <div class="profile-bars">
+                <h3>🧠 AI Analysis of Your Playstyle</h3>
+                <div class="profile-item">
+                    <div class="profile-label">
+                        <span>Aggression</span>
+                        <span id="aggressionVal">50%</span>
+                    </div>
+                    <div class="profile-bar">
+                        <div class="profile-fill" id="aggressionBar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="profile-item">
+                    <div class="profile-label">
+                        <span>Caution</span>
+                        <span id="cautionVal">50%</span>
+                    </div>
+                    <div class="profile-bar">
+                        <div class="profile-fill" id="cautionBar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="profile-item">
+                    <div class="profile-label">
+                        <span>Morality</span>
+                        <span id="moralityVal">50%</span>
+                    </div>
+                    <div class="profile-bar">
+                        <div class="profile-fill" id="moralityBar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="profile-item">
+                    <div class="profile-label">
+                        <span>Exploration</span>
+                        <span id="explorationVal">50%</span>
+                    </div>
+                    <div class="profile-bar">
+                        <div class="profile-fill" id="explorationBar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="profile-item">
+                    <div class="profile-label">
+                        <span>Strategy</span>
+                        <span id="strategyVal">50%</span>
+                    </div>
+                    <div class="profile-bar">
+                        <div class="profile-fill" id="strategyBar" style="width: 50%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="worldChangesArea"></div>
+            <div id="predictionsArea"></div>
+
+            <div class="encounter-area">
+                <div class="encounter-title">Current Situation</div>
+                <div id="encounterDescription">Initializing world...</div>
+                <div id="moralChoiceArea"></div>
+                <div class="action-buttons">
+                    <button class="action-btn attack" onclick="takeAction('attack')">⚔️ Attack</button>
+                    <button class="action-btn defend" onclick="takeAction('defend')">🛡️ Defend</button>
+                    <button class="action-btn help" onclick="takeAction('help')">🤝 Help</button>
+                    <button class="action-btn betray" onclick="takeAction('betray')">🗡️ Betray</button>
+                    <button class="action-btn explore" onclick="takeAction('explore')">🔍 Explore</button>
+                    <button class="action-btn plan" onclick="takeAction('plan')">📋 Plan</button>
+                </div>
+            </div>
+
+            <div class="log" id="eventLog">
+                <div class="log-entry">Game ready. Awaiting your first action...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let playerId = null;
+        let currentEncounter = null;
+
+        async function startGame() {
+            try {
+                const response = await fetch('/api/session/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                playerId = data.playerId;
+                document.getElementById('startScreen').style.display = 'none';
+                document.getElementById('gameArea').classList.add('active');
+                
+                addLogEntry('🎮 Game session started. The AI is watching...');
+                updateUI(data.sessionState);
+                generateNewEncounter();
+            } catch (error) {
+                console.error('Failed to start game:', error);
+                alert('Failed to start game. Please refresh and try again.');
+            }
+        }
+
+        async function takeAction(actionType) {
+            if (!playerId) return;
+
+            const action = {
+                type: actionType,
+                timestamp: Date.now(),
+                context: currentEncounter ? currentEncounter.type : 'general'
+            };
+
+            try {
+                const response = await fetch('/api/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerId, action })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLogEntry(`➤ You chose to ${actionType}`);
+                    
+                    if (data.result.worldChanges && data.result.worldChanges.changes.length > 0) {
+                        showWorldChanges(data.result.worldChanges);
+                    }
+                    
+                    if (data.result.predictions && data.result.predictions.length > 0) {
+                        showPredictions(data.result.predictions);
+                    }
+                    
+                    updateUI(data.sessionState);
+                    currentEncounter = data.result.nextEncounter;
+                    displayEncounter(currentEncounter);
+                }
+            } catch (error) {
+                console.error('Failed to process action:', error);
+                addLogEntry('❌ Error processing action');
+            }
+        }
+
+        async function takeMoralChoice(decision, moralityChange, consequence) {
+            if (!playerId) return;
+
+            const action = {
+                type: decision,
+                timestamp: Date.now(),
+                context: 'moral_choice',
+                isMoralChoice: true,
+                moralityChange: moralityChange,
+                decision: decision,
+                immediateEffect: consequence
+            };
+
+            try {
+                const response = await fetch('/api/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerId, action })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLogEntry(`⚖️ Moral choice: ${decision} - ${consequence}`);
+                    updateUI(data.sessionState);
+                    document.getElementById('moralChoiceArea').innerHTML = '';
+                    
+                    setTimeout(() => {
+                        generateNewEncounter();
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Failed to process moral choice:', error);
+            }
+        }
+
+        function generateNewEncounter() {
+            // Just update the display with a new scenario
+            const scenarios = [
+                "You encounter a group of travelers. They seem vulnerable.",
+                "A fortified enemy position blocks your path.",
+                "You discover ancient ruins with mysterious markings.",
+                "An ally approaches with urgent news.",
+                "The environment shifts around you ominously.",
+                "You hear sounds of conflict in the distance."
+            ];
+            
+            const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+            document.getElementById('encounterDescription').textContent = scenario;
+        }
+
+        function displayEncounter(encounter) {
+            if (!encounter) return;
+            
+            let description = `Type: ${encounter.type} | Difficulty: ${encounter.difficulty}/10\n\n`;
+            description += encounter.environmentalChallenge.description;
+            
+            document.getElementById('encounterDescription').textContent = description;
+            
+            if (encounter.moralDilemma) {
+                displayMoralChoice(encounter.moralDilemma);
+            }
+        }
+
+        function displayMoralChoice(dilemma) {
+            const area = document.getElementById('moralChoiceArea');
+            const optionKeys = Object.keys(dilemma.options);
+            
+            // Helper function to escape HTML
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            let html = `
+                <div class="moral-choice fade-in">
+                    <h3>⚖️ Moral Dilemma</h3>
+                    <p>${escapeHtml(dilemma.scenario)}</p>
+            `;
+            
+            optionKeys.forEach(key => {
+                const option = dilemma.options[key];
+                const escapedKey = escapeHtml(key);
+                const escapedConsequence = escapeHtml(option.consequence);
+                html += `
+                    <div class="choice-option" onclick="takeMoralChoice('${escapedKey}', ${option.moralityChange}, '${escapedConsequence}')">
+                        <strong>${escapedKey.toUpperCase()}</strong>
+                        <div class="consequence">Consequence: ${escapedConsequence}</div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            area.innerHTML = html;
+        }
+
+        function showWorldChanges(changes) {
+            const area = document.getElementById('worldChangesArea');
+            let html = `
+                <div class="world-changes fade-in">
+                    <h3>🌍 The World Reacts</h3>
+                    <ul>
+            `;
+            
+            changes.changes.forEach(change => {
+                html += `<li>${change}</li>`;
+            });
+            
+            html += `</ul></div>`;
+            area.innerHTML = html;
+            
+            setTimeout(() => {
+                area.innerHTML = '';
+            }, 5000);
+        }
+
+        function showPredictions(predictions) {
+            const area = document.getElementById('predictionsArea');
+            let html = `
+                <div class="predictions fade-in">
+                    <h3>🔮 AI Predictions (What the game thinks you'll do)</h3>
+                    <ul style="list-style: none; padding-left: 0;">
+            `;
+            
+            predictions.forEach(pred => {
+                html += `<li>➤ Likely: ${pred.action} (${Math.round(pred.confidence * 100)}% confidence) → Preparing: ${pred.counter}</li>`;
+            });
+            
+            html += `</ul></div>`;
+            area.innerHTML = html;
+        }
+
+        function updateUI(sessionState) {
+            document.getElementById('score').textContent = sessionState.score;
+            document.getElementById('actionCount').textContent = sessionState.actionCount;
+            document.getElementById('worldState').textContent = sessionState.worldState.environment;
+            document.getElementById('choiceCount').textContent = sessionState.choiceCount;
+            
+            updateProfileBars(sessionState.playerProfile);
+        }
+
+        function updateProfileBars(profile) {
+            const traits = ['aggression', 'caution', 'morality', 'exploration', 'strategy'];
+            
+            traits.forEach(trait => {
+                const value = Math.round(profile[trait] * 100);
+                document.getElementById(`${trait}Bar`).style.width = `${value}%`;
+                document.getElementById(`${trait}Val`).textContent = `${value}%`;
+            });
+        }
+
+        function addLogEntry(message) {
+            const log = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry fade-in';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 10 entries
+            while (log.children.length > 10) {
+                log.removeChild(log.lastChild);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "conscience",
+  "version": "1.0.0",
+  "description": "A predictive world AI game that adapts to your playstyle and moral decisions",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'No build step required'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "game",
+    "ai",
+    "predictive",
+    "adaptive"
+  ],
+  "author": "",
+  "license": "MIT"
+}
