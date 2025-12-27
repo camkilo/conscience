@@ -33,6 +33,11 @@ class Game3D {
     this.playerEnergy = 100;
     this.playerScore = 0;
     
+    // Movement physics constants
+    this.accelerationFactor = 8;
+    this.maxSpeed = 8;
+    this.friction = 0.85;
+    
     // Abilities
     this.abilities = [
       { name: 'Attack', cooldown: 0, maxCooldown: 2, key: '1' },
@@ -44,6 +49,12 @@ class Game3D {
     // UI state
     this.paused = false;
     this.notifications = [];
+    
+    // Interactive elements
+    this.platforms = [];
+    this.pressurePlates = [];
+    this.breakableObjects = [];
+    this.pickups = [];
     
     // Color palette
     this.colors = {
@@ -153,8 +164,8 @@ class Game3D {
     const grid = new THREE.GridHelper(200, 40, 0x444466, 0x222233);
     this.scene.add(grid);
     
-    // Add some obstacles/structures
-    for (let i = 0; i < 15; i++) {
+    // Add some static obstacles/structures
+    for (let i = 0; i < 10; i++) {
       const size = Math.random() * 2 + 1;
       const geometry = new THREE.BoxGeometry(size, size * 2, size);
       const material = new THREE.MeshStandardMaterial({ 
@@ -171,6 +182,150 @@ class Game3D {
       obstacle.castShadow = true;
       obstacle.receiveShadow = true;
       this.scene.add(obstacle);
+    }
+    
+    // Add interactive elements
+    this.createMovablePlatforms();
+    this.createPressurePlates();
+    this.createBreakableObjects();
+    this.createPickups();
+  }
+  
+  /**
+   * Create movable platforms
+   */
+  createMovablePlatforms() {
+    for (let i = 0; i < 3; i++) {
+      const geometry = new THREE.BoxGeometry(4, 0.5, 4);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0x4488ff,
+        roughness: 0.6,
+        metalness: 0.4,
+        emissive: 0x2244aa,
+        emissiveIntensity: 0.2
+      });
+      const platform = new THREE.Mesh(geometry, material);
+      platform.position.set(
+        (Math.random() - 0.5) * 60,
+        2,
+        (Math.random() - 0.5) * 60
+      );
+      platform.castShadow = true;
+      platform.receiveShadow = true;
+      platform.userData = {
+        type: 'platform',
+        baseY: platform.position.y,
+        targetY: platform.position.y,
+        velocity: 0,
+        activated: false
+      };
+      this.scene.add(platform);
+      this.platforms.push(platform);
+    }
+  }
+  
+  /**
+   * Create pressure plates
+   */
+  createPressurePlates() {
+    for (let i = 0; i < 5; i++) {
+      const geometry = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 16);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0x888800,
+        roughness: 0.8,
+        metalness: 0.2
+      });
+      const plate = new THREE.Mesh(geometry, material);
+      plate.position.set(
+        (Math.random() - 0.5) * 70,
+        0.1,
+        (Math.random() - 0.5) * 70
+      );
+      plate.receiveShadow = true;
+      plate.userData = {
+        type: 'pressurePlate',
+        activated: false,
+        cooldown: 0,
+        effect: Math.random() > 0.5 ? 'spikes' : 'collapse'
+      };
+      this.scene.add(plate);
+      this.pressurePlates.push(plate);
+    }
+  }
+  
+  /**
+   * Create breakable objects
+   */
+  createBreakableObjects() {
+    for (let i = 0; i < 8; i++) {
+      const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0x886644,
+        roughness: 0.9,
+        metalness: 0.1
+      });
+      const crate = new THREE.Mesh(geometry, material);
+      crate.position.set(
+        (Math.random() - 0.5) * 70,
+        0.75,
+        (Math.random() - 0.5) * 70
+      );
+      crate.castShadow = true;
+      crate.receiveShadow = true;
+      crate.userData = {
+        type: 'breakable',
+        health: 50,
+        broken: false
+      };
+      this.scene.add(crate);
+      this.breakableObjects.push(crate);
+    }
+  }
+  
+  /**
+   * Create pickups
+   */
+  createPickups() {
+    const pickupTypes = ['health', 'speed', 'power'];
+    for (let i = 0; i < 6; i++) {
+      const type = pickupTypes[Math.floor(Math.random() * pickupTypes.length)];
+      const geometry = new THREE.OctahedronGeometry(0.5);
+      const colors = { health: 0x00ff00, speed: 0x00ffff, power: 0xffaa00 };
+      const material = new THREE.MeshStandardMaterial({ 
+        color: colors[type],
+        emissive: colors[type],
+        emissiveIntensity: 0.5,
+        roughness: 0.3,
+        metalness: 0.7
+      });
+      const pickup = new THREE.Mesh(geometry, material);
+      pickup.position.set(
+        (Math.random() - 0.5) * 80,
+        1,
+        (Math.random() - 0.5) * 80
+      );
+      pickup.userData = {
+        type: 'pickup',
+        pickupType: type,
+        rotationSpeed: Math.random() + 1,
+        collected: false
+      };
+      this.scene.add(pickup);
+      this.pickups.push(pickup);
+    }
+  }
+  
+  /**
+   * Load Meshy character model
+   */
+  async loadMeshyCharacter() {
+    try {
+      const loader = new THREE.GLTFLoader();
+      // For now, we'll keep the simple geometry but prepare for model loading
+      // The GLTFLoader needs to be loaded as a separate script
+      console.log('Meshy character loading prepared');
+    } catch (error) {
+      console.log('Using default player geometry:', error);
     }
   }
   
@@ -191,10 +346,15 @@ class Game3D {
     this.player.castShadow = true;
     this.player.userData = {
       velocity: new THREE.Vector3(),
+      targetVelocity: new THREE.Vector3(),
       speed: 10,
-      rotation: 0
+      rotation: 0,
+      isMoving: false
     };
     this.scene.add(this.player);
+    
+    // Load Meshy character model
+    this.loadMeshyCharacter();
     
     // Add player indicator ring
     const ringGeometry = new THREE.RingGeometry(0.8, 1, 32);
@@ -215,10 +375,11 @@ class Game3D {
    */
   spawnEnemies(count) {
     for (let i = 0; i < count; i++) {
-      const geometry = new THREE.OctahedronGeometry(0.6);
+      const enemyType = this.getRandomEnemyType();
+      const geometry = new THREE.OctahedronGeometry(enemyType.size);
       const material = new THREE.MeshStandardMaterial({ 
-        color: this.colors.enemy,
-        emissive: this.colors.enemy,
+        color: enemyType.color,
+        emissive: enemyType.color,
         emissiveIntensity: 0.3,
         roughness: 0.5,
         metalness: 0.5
@@ -231,14 +392,93 @@ class Game3D {
       );
       enemy.castShadow = true;
       enemy.userData = {
-        health: 100,
+        health: enemyType.health,
+        maxHealth: enemyType.health,
         velocity: new THREE.Vector3(),
-        speed: 3,
-        type: 'enemy'
+        speed: enemyType.speed,
+        type: 'enemy',
+        tier: enemyType.tier,
+        damage: enemyType.damage,
+        attackRange: enemyType.attackRange,
+        detectionRange: enemyType.detectionRange,
+        state: 'patrol',
+        patrolTarget: this.generatePatrolTarget(enemy.position),
+        lastAttackTime: 0,
+        attackCooldown: enemyType.attackCooldown
       };
       this.scene.add(enemy);
       this.enemies.push(enemy);
     }
+  }
+  
+  /**
+   * Get random enemy type with different tiers
+   */
+  getRandomEnemyType() {
+    const types = [
+      {
+        tier: 'swarm',
+        size: 0.4,
+        health: 30,
+        speed: 5,
+        damage: 3,
+        attackRange: 2,
+        detectionRange: 20,
+        attackCooldown: 0.5,
+        color: 0xff6666
+      },
+      {
+        tier: 'normal',
+        size: 0.6,
+        health: 100,
+        speed: 3,
+        damage: 5,
+        attackRange: 2.5,
+        detectionRange: 25,
+        attackCooldown: 1,
+        color: 0xff4444
+      },
+      {
+        tier: 'heavy',
+        size: 0.9,
+        health: 200,
+        speed: 1.5,
+        damage: 15,
+        attackRange: 3,
+        detectionRange: 30,
+        attackCooldown: 2,
+        color: 0xff0000
+      },
+      {
+        tier: 'controller',
+        size: 0.7,
+        health: 80,
+        speed: 2,
+        damage: 8,
+        attackRange: 10,
+        detectionRange: 35,
+        attackCooldown: 3,
+        color: 0xff22ff
+      }
+    ];
+    
+    // Weighted random selection favoring normal enemies
+    const rand = Math.random();
+    if (rand < 0.4) return types[0]; // swarm
+    if (rand < 0.8) return types[1]; // normal
+    if (rand < 0.95) return types[2]; // heavy
+    return types[3]; // controller
+  }
+  
+  /**
+   * Generate patrol target for enemy
+   */
+  generatePatrolTarget(currentPos) {
+    return new THREE.Vector3(
+      currentPos.x + (Math.random() - 0.5) * 20,
+      1,
+      currentPos.z + (Math.random() - 0.5) * 20
+    );
   }
   
   /**
@@ -466,6 +706,8 @@ class Game3D {
    */
   performAttack() {
     const attackRange = 5;
+    
+    // Attack enemies
     this.enemies.forEach(enemy => {
       const distance = this.player.position.distanceTo(enemy.position);
       if (distance < attackRange) {
@@ -475,6 +717,18 @@ class Game3D {
           this.removeEnemy(enemy);
           this.playerScore += 100;
           this.updateScore();
+        }
+      }
+    });
+    
+    // Break nearby objects
+    this.breakableObjects.forEach(crate => {
+      if (crate.userData.broken) return;
+      const distance = this.player.position.distanceTo(crate.position);
+      if (distance < attackRange) {
+        crate.userData.health -= 30;
+        if (crate.userData.health <= 0) {
+          this.breakObject(crate);
         }
       }
     });
@@ -859,23 +1113,43 @@ class Game3D {
   updatePlayer(delta) {
     if (this.paused) return;
     
-    const moveSpeed = this.player.userData.speed * delta;
-    const direction = new THREE.Vector3();
+    const moveSpeed = this.player.userData.speed;
+    const targetVelocity = new THREE.Vector3();
     
-    // WASD movement
-    if (this.keys['w']) direction.z -= 1;
-    if (this.keys['s']) direction.z += 1;
-    if (this.keys['a']) direction.x -= 1;
-    if (this.keys['d']) direction.x += 1;
+    // WASD movement - calculate target velocity
+    if (this.keys['w']) targetVelocity.z -= 1;
+    if (this.keys['s']) targetVelocity.z += 1;
+    if (this.keys['a']) targetVelocity.x -= 1;
+    if (this.keys['d']) targetVelocity.x += 1;
     
-    if (direction.length() > 0) {
-      direction.normalize();
-      this.player.userData.velocity.add(direction.multiplyScalar(moveSpeed));
+    // Normalize and scale target velocity
+    if (targetVelocity.length() > 0) {
+      targetVelocity.normalize().multiplyScalar(moveSpeed);
+      this.player.userData.isMoving = true;
+    } else {
+      // No input - apply friction
+      targetVelocity.set(0, 0, 0);
+      this.player.userData.isMoving = false;
     }
     
-    // Apply velocity with damping
-    this.player.position.add(this.player.userData.velocity);
-    this.player.userData.velocity.multiplyScalar(0.9);
+    // Smooth acceleration/deceleration
+    const currentVel = this.player.userData.velocity;
+    const targetDiff = targetVelocity.clone().sub(currentVel);
+    const acceleration = targetDiff.multiplyScalar(delta * this.accelerationFactor);
+    currentVel.add(acceleration);
+    
+    // Apply friction when not moving
+    if (!this.player.userData.isMoving) {
+      currentVel.multiplyScalar(this.friction);
+    }
+    
+    // Clamp to max speed
+    if (currentVel.length() > this.maxSpeed) {
+      currentVel.normalize().multiplyScalar(this.maxSpeed);
+    }
+    
+    // Apply velocity to position
+    this.player.position.add(currentVel.clone().multiplyScalar(delta));
     
     // Keep player on ground and in bounds
     this.player.position.y = 1;
@@ -883,10 +1157,10 @@ class Game3D {
     this.player.position.z = Math.max(-90, Math.min(90, this.player.position.z));
     
     // Rotate player based on movement
-    if (this.player.userData.velocity.length() > 0.1) {
+    if (currentVel.length() > 0.1) {
       this.player.userData.rotation = Math.atan2(
-        this.player.userData.velocity.x,
-        this.player.userData.velocity.z
+        currentVel.x,
+        currentVel.z
       );
       this.player.rotation.y = this.player.userData.rotation;
     }
@@ -899,28 +1173,149 @@ class Game3D {
     if (this.paused) return;
     
     this.enemies.forEach(enemy => {
-      // Simple AI: move toward player
-      const direction = new THREE.Vector3();
-      direction.subVectors(this.player.position, enemy.position);
-      direction.y = 0;
+      const distanceToPlayer = this.player.position.distanceTo(enemy.position);
       
-      if (direction.length() > 3) {
-        direction.normalize();
-        enemy.position.add(direction.multiplyScalar(enemy.userData.speed * delta));
+      // State machine: patrol, chase, attack
+      if (distanceToPlayer < enemy.userData.detectionRange) {
+        if (distanceToPlayer < enemy.userData.attackRange) {
+          enemy.userData.state = 'attack';
+        } else {
+          enemy.userData.state = 'chase';
+        }
+      } else {
+        enemy.userData.state = 'patrol';
       }
       
-      // Rotate toward player
-      enemy.rotation.y = Math.atan2(direction.x, direction.z);
+      // AI behavior based on state
+      const direction = new THREE.Vector3();
+      
+      switch (enemy.userData.state) {
+        case 'patrol':
+          // Move toward patrol target
+          direction.subVectors(enemy.userData.patrolTarget, enemy.position);
+          direction.y = 0;
+          
+          if (direction.length() < 2) {
+            // Reached patrol target, generate new one
+            enemy.userData.patrolTarget = this.generatePatrolTarget(enemy.position);
+          }
+          
+          if (direction.length() > 0) {
+            direction.normalize();
+            enemy.position.add(direction.multiplyScalar(enemy.userData.speed * 0.5 * delta));
+          }
+          break;
+          
+        case 'chase':
+          // Predictive movement - try to cut off player
+          const playerVel = this.player.userData.velocity.clone();
+          const predictedPos = this.player.position.clone().add(playerVel.multiplyScalar(2));
+          
+          direction.subVectors(predictedPos, enemy.position);
+          direction.y = 0;
+          
+          if (direction.length() > 0) {
+            direction.normalize();
+            enemy.position.add(direction.multiplyScalar(enemy.userData.speed * delta));
+          }
+          break;
+          
+        case 'attack':
+          // Face player and attack
+          direction.subVectors(this.player.position, enemy.position);
+          direction.y = 0;
+          
+          // Attack cooldown
+          const now = Date.now() / 1000;
+          if (now - enemy.userData.lastAttackTime > enemy.userData.attackCooldown) {
+            this.enemyAttack(enemy);
+            enemy.userData.lastAttackTime = now;
+          }
+          break;
+      }
+      
+      // Rotate toward movement direction or player
+      if (direction.length() > 0) {
+        enemy.rotation.y = Math.atan2(direction.x, direction.z);
+      }
       
       // Bobbing animation
       enemy.position.y = 1 + Math.sin(Date.now() * 0.003 + enemy.position.x) * 0.2;
       
-      // Check collision with player
-      const distance = this.player.position.distanceTo(enemy.position);
-      if (distance < 1.5) {
-        this.takeDamage(5 * delta);
+      // Proximity-based collision damage (continuous damage in range)
+      if (distanceToPlayer < enemy.userData.attackRange) {
+        this.takeDamage(enemy.userData.damage * delta);
       }
     });
+  }
+  
+  /**
+   * Enemy attack action
+   */
+  enemyAttack(enemy) {
+    // Visual attack effect
+    if (enemy.userData.tier === 'controller') {
+      // Ranged projectile attack
+      this.createEnemyProjectile(enemy);
+    } else {
+      // Melee swipe effect
+      this.createMeleeSwipe(enemy);
+    }
+  }
+  
+  /**
+   * Create enemy projectile
+   */
+  createEnemyProjectile(enemy) {
+    const geometry = new THREE.SphereGeometry(0.2);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff22ff });
+    const projectile = new THREE.Mesh(geometry, material);
+    projectile.position.copy(enemy.position);
+    
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.player.position, enemy.position).normalize();
+    
+    projectile.userData = {
+      velocity: direction.multiplyScalar(15),
+      lifetime: 3,
+      damage: enemy.userData.damage
+    };
+    
+    this.scene.add(projectile);
+    this.particles.push(projectile);
+  }
+  
+  /**
+   * Create melee swipe effect
+   */
+  createMeleeSwipe(enemy) {
+    const geometry = new THREE.ConeGeometry(0.5, 1.5, 8);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0xff4444,
+      transparent: true,
+      opacity: 0.5
+    });
+    const swipe = new THREE.Mesh(geometry, material);
+    swipe.position.copy(enemy.position);
+    swipe.rotation.y = enemy.rotation.y;
+    swipe.rotation.x = Math.PI / 2;
+    
+    this.scene.add(swipe);
+    
+    let opacity = 0.5;
+    const animate = () => {
+      opacity -= 0.05;
+      swipe.material.opacity = opacity;
+      swipe.scale.x += 0.1;
+      swipe.scale.z += 0.1;
+      
+      if (opacity > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        this.scene.remove(swipe);
+      }
+    };
+    animate();
   }
   
   /**
@@ -980,6 +1375,228 @@ class Game3D {
   }
   
   /**
+   * Update interactive elements
+   */
+  updateInteractiveElements(delta) {
+    // Update platforms
+    this.platforms.forEach(platform => {
+      const distToPlayer = this.player.position.distanceTo(platform.position);
+      
+      // Activate platform when player is near
+      if (distToPlayer < 5 && !platform.userData.activated) {
+        platform.userData.activated = true;
+        platform.userData.targetY = platform.userData.baseY + 3;
+        this.showNotification('Platform activated!', 'info');
+      }
+      
+      // Smooth movement
+      const diff = platform.userData.targetY - platform.position.y;
+      platform.position.y += diff * delta * 2;
+    });
+    
+    // Update pressure plates
+    this.pressurePlates.forEach(plate => {
+      const distToPlayer = this.player.position.distanceTo(plate.position);
+      plate.userData.cooldown -= delta;
+      
+      if (distToPlayer < 2 && !plate.userData.activated && plate.userData.cooldown <= 0) {
+        plate.userData.activated = true;
+        plate.userData.cooldown = 5;
+        plate.material.color.setHex(0xff0000);
+        
+        if (plate.userData.effect === 'spikes') {
+          this.createSpikeTrap(plate.position);
+          this.showNotification('Spikes activated!', 'warning');
+        } else {
+          this.createCollapsibleFloor(plate.position);
+          this.showNotification('Floor collapsing!', 'warning');
+        }
+        
+        setTimeout(() => {
+          plate.userData.activated = false;
+          plate.material.color.setHex(0x888800);
+        }, 3000);
+      }
+    });
+    
+    // Update breakable objects
+    this.breakableObjects.forEach(crate => {
+      if (crate.userData.broken) return;
+      
+      const distToPlayer = this.player.position.distanceTo(crate.position);
+      
+      // Break when attacked or dashed into
+      if (distToPlayer < 2 && this.player.userData.velocity.length() > 5) {
+        this.breakObject(crate);
+      }
+    });
+    
+    // Update pickups
+    this.pickups.forEach(pickup => {
+      if (pickup.userData.collected) return;
+      
+      // Rotate pickups
+      pickup.rotation.y += delta * pickup.userData.rotationSpeed;
+      pickup.position.y = 1 + Math.sin(Date.now() * 0.002) * 0.3;
+      
+      const distToPlayer = this.player.position.distanceTo(pickup.position);
+      if (distToPlayer < 1.5) {
+        this.collectPickup(pickup);
+      }
+    });
+  }
+  
+  /**
+   * Create spike trap effect
+   */
+  createSpikeTrap(position) {
+    for (let i = 0; i < 8; i++) {
+      const geometry = new THREE.ConeGeometry(0.2, 1.5, 4);
+      const material = new THREE.MeshStandardMaterial({ color: 0x666666 });
+      const spike = new THREE.Mesh(geometry, material);
+      
+      const angle = (i / 8) * Math.PI * 2;
+      spike.position.set(
+        position.x + Math.cos(angle) * 2,
+        0,
+        position.z + Math.sin(angle) * 2
+      );
+      spike.castShadow = true;
+      
+      this.scene.add(spike);
+      
+      // Animate spikes rising
+      let targetY = 0.75;
+      const rise = () => {
+        if (spike.position.y < targetY) {
+          spike.position.y += 0.1;
+          requestAnimationFrame(rise);
+        } else {
+          // Check if player is hit
+          const dist = this.player.position.distanceTo(spike.position);
+          if (dist < 1) {
+            this.takeDamage(20);
+          }
+          
+          // Remove after delay
+          setTimeout(() => {
+            this.scene.remove(spike);
+          }, 3000);
+        }
+      };
+      rise();
+    }
+  }
+  
+  /**
+   * Create collapsible floor effect
+   */
+  createCollapsibleFloor(position) {
+    const geometry = new THREE.CircleGeometry(3, 32);
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0x332211,
+      transparent: true,
+      opacity: 0.8
+    });
+    const floor = new THREE.Mesh(geometry, material);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(position.x, 0.05, position.z);
+    this.scene.add(floor);
+    
+    // Animate collapse
+    setTimeout(() => {
+      let opacity = 0.8;
+      const collapse = () => {
+        opacity -= 0.02;
+        floor.material.opacity = opacity;
+        floor.position.y -= 0.05;
+        
+        // Damage player if standing on it
+        const dist = this.player.position.distanceTo(floor.position);
+        if (dist < 3 && opacity > 0.3) {
+          this.takeDamage(10);
+        }
+        
+        if (opacity > 0) {
+          requestAnimationFrame(collapse);
+        } else {
+          this.scene.remove(floor);
+        }
+      };
+      collapse();
+    }, 500);
+  }
+  
+  /**
+   * Break object
+   */
+  breakObject(crate) {
+    crate.userData.broken = true;
+    this.scene.remove(crate);
+    
+    // Create debris particles
+    for (let i = 0; i < 10; i++) {
+      const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+      const material = new THREE.MeshStandardMaterial({ color: 0x886644 });
+      const debris = new THREE.Mesh(geometry, material);
+      debris.position.copy(crate.position);
+      debris.castShadow = true;
+      
+      debris.userData = {
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 5,
+          Math.random() * 5 + 2,
+          (Math.random() - 0.5) * 5
+        ),
+        lifetime: 2
+      };
+      
+      this.particles.push(debris);
+      this.scene.add(debris);
+    }
+    
+    this.showNotification('Crate destroyed!', 'info');
+    this.playerScore += 10;
+    this.updateScore();
+  }
+  
+  /**
+   * Collect pickup
+   */
+  collectPickup(pickup) {
+    pickup.userData.collected = true;
+    this.scene.remove(pickup);
+    
+    switch (pickup.userData.pickupType) {
+      case 'health':
+        this.playerHealth = Math.min(100, this.playerHealth + 30);
+        this.showNotification('+30 Health', 'info');
+        break;
+      case 'speed':
+        this.maxSpeed = 12;
+        this.showNotification('Speed boost!', 'ability');
+        setTimeout(() => { this.maxSpeed = 8; }, 10000);
+        break;
+      case 'power':
+        this.playerScore += 50;
+        this.showNotification('+50 Score', 'info');
+        this.updateScore();
+        break;
+    }
+    
+    // Respawn pickup after delay
+    setTimeout(() => {
+      pickup.userData.collected = false;
+      pickup.position.set(
+        (Math.random() - 0.5) * 80,
+        1,
+        (Math.random() - 0.5) * 80
+      );
+      this.scene.add(pickup);
+    }, 15000);
+  }
+  
+  /**
    * Update particles
    */
   updateParticles(delta) {
@@ -989,6 +1606,17 @@ class Game3D {
       // Update position
       particle.position.add(particle.userData.velocity.clone().multiplyScalar(delta));
       particle.userData.velocity.y -= 9.8 * delta; // Gravity
+      
+      // Check projectile collision with player
+      if (particle.userData.damage) {
+        const distToPlayer = this.player.position.distanceTo(particle.position);
+        if (distToPlayer < 1) {
+          this.takeDamage(particle.userData.damage);
+          this.scene.remove(particle);
+          this.particles.splice(i, 1);
+          continue;
+        }
+      }
       
       // Update lifetime
       particle.userData.lifetime -= delta;
@@ -1046,6 +1674,7 @@ class Game3D {
       this.updateEnemies(delta);
       this.updateParticles(delta);
       this.updateCamera(delta);
+      this.updateInteractiveElements(delta);
     }
     
     this.updateHUD();
