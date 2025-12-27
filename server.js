@@ -10,6 +10,7 @@ const sessions = new Map();
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/three', express.static('node_modules/three/build'));
 
 // Root endpoint
 // Note: In production, add rate limiting middleware (e.g., express-rate-limit)
