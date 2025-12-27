@@ -30,6 +30,7 @@ class Game3D {
     
     // Player state
     this.playerHealth = 100;
+    this.playerMaxHealth = 100;
     this.playerEnergy = 100;
     this.playerScore = 0;
     
@@ -40,7 +41,22 @@ class Game3D {
       friction: 0.85
     };
     
-    // Enemy tier configuration
+    // NEW CONSCIENCE ENGINE SYSTEMS
+    this.intentTracker = null;
+    this.worldReactions = null;
+    this.powerUpSystem = null;
+    this.enemySystem = null;
+    this.deathScreen = null;
+    this.mapGenerator = null;
+    this.gltfLoader = null;
+    this.meshyCharacter = null;
+    
+    // Configuration
+    this.config = {
+      meshyCharacterPath: '/Meshy_AI_Character_output.glb'
+    };
+    
+    // Enemy tier configuration (kept for compatibility but will use new EnemySystem)
     this.enemyTypes = {
       swarm: {
         tier: 'swarm',
@@ -151,14 +167,55 @@ class Game3D {
     // Create lights
     this.createLights();
     
-    // Create environment
+    // ===== NEW: Initialize Conscience Engine Systems =====
+    console.log('Initializing Conscience Engine...');
+    
+    // Initialize Intent Tracker
+    if (window.IntentTracker) {
+      this.intentTracker = new window.IntentTracker();
+      console.log('✓ Intent Tracker initialized');
+    }
+    
+    // Initialize World Reactions
+    if (window.WorldReactions && this.intentTracker) {
+      this.worldReactions = new window.WorldReactions(this.scene, this.intentTracker);
+      console.log('✓ World Reactions initialized');
+    }
+    
+    // Initialize Power-Up System
+    if (window.PowerUpSystem && this.intentTracker) {
+      this.powerUpSystem = new window.PowerUpSystem(this.scene, this.intentTracker);
+      console.log('✓ Power-Up System initialized');
+    }
+    
+    // Initialize Enemy System
+    if (window.EnemySystem && this.intentTracker) {
+      this.enemySystem = new window.EnemySystem(this.scene, this.intentTracker);
+      console.log('✓ Enemy System initialized');
+    }
+    
+    // Initialize Death Screen
+    if (window.DeathScreen && this.intentTracker) {
+      this.deathScreen = new window.DeathScreen(this.intentTracker);
+      console.log('✓ Death Screen initialized');
+    }
+    
+    // Initialize Vertical Map Generator
+    if (window.VerticalMapGenerator) {
+      this.mapGenerator = new window.VerticalMapGenerator(this.scene);
+      console.log('✓ Vertical Map Generator initialized');
+    }
+    
+    console.log('Conscience Engine initialized successfully!');
+    
+    // Create environment with new map system
     this.createEnvironment();
     
-    // Create player
-    this.createPlayer();
+    // Create player with Meshy AI character
+    await this.createPlayer();
     
-    // Create initial enemies
-    this.spawnEnemies(5);
+    // Create initial enemies with new system
+    this.spawnNewEnemies(2, 1, 1, 1); // 2 Observers, 1 Punisher, 1 Distorter
     
     // Create HUD
     this.createHUD();
@@ -202,8 +259,8 @@ class Game3D {
    * Create game environment
    */
   createEnvironment() {
-    // Ground plane
-    const groundGeometry = new THREE.PlaneGeometry(200, 200);
+    // Ground plane (large base)
+    const groundGeometry = new THREE.PlaneGeometry(300, 300);
     const groundMaterial = new THREE.MeshStandardMaterial({ 
       color: 0x223344,
       roughness: 0.8,
@@ -215,32 +272,49 @@ class Game3D {
     this.scene.add(ground);
     
     // Grid helper
-    const grid = new THREE.GridHelper(200, 40, 0x444466, 0x222233);
+    const grid = new THREE.GridHelper(300, 60, 0x444466, 0x222233);
     this.scene.add(grid);
     
-    // Add some static obstacles/structures
-    for (let i = 0; i < 10; i++) {
-      const size = Math.random() * 2 + 1;
-      const geometry = new THREE.BoxGeometry(size, size * 2, size);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x336688,
-        roughness: 0.7,
-        metalness: 0.3
-      });
-      const obstacle = new THREE.Mesh(geometry, material);
-      obstacle.position.set(
-        (Math.random() - 0.5) * 80,
-        size,
-        (Math.random() - 0.5) * 80
-      );
-      obstacle.castShadow = true;
-      obstacle.receiveShadow = true;
-      this.scene.add(obstacle);
+    // Generate vertical map with behavior zones
+    if (this.mapGenerator) {
+      this.mapGenerator.generateMap();
+      console.log('✓ Vertical map with behavior zones generated');
     }
     
-    // Add interactive elements
-    this.createMovablePlatforms();
-    this.createPressurePlates();
+    // Add world reaction platforms and spikes
+    if (this.worldReactions) {
+      // Create judgmental platforms
+      for (let i = 0; i < 5; i++) {
+        const pos = new THREE.Vector3(
+          (Math.random() - 0.5) * 60,
+          2,
+          (Math.random() - 0.5) * 60
+        );
+        this.worldReactions.createJudgmentalPlatform(pos);
+      }
+      
+      // Create intent-based spikes
+      for (let i = 0; i < 8; i++) {
+        const pos = new THREE.Vector3(
+          (Math.random() - 0.5) * 70,
+          0,
+          (Math.random() - 0.5) * 70
+        );
+        this.worldReactions.createIntentBasedSpike(pos);
+      }
+      
+      console.log('✓ World reaction elements created');
+    }
+    
+    // Create power-ups
+    if (this.powerUpSystem) {
+      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(-20, 1, -20), 'TIME_SLOW');
+      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(20, 1, -20), 'DAMAGE_BOOST');
+      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(0, 1, 25), 'SPEED_SURGE');
+      console.log('✓ Power-ups created');
+    }
+    
+    // Keep old interactive elements for compatibility
     this.createBreakableObjects();
     this.createPickups();
   }
@@ -383,7 +457,11 @@ class Game3D {
   /**
    * Create player character
    */
-  createPlayer() {
+  /**
+   * Create player
+   */
+  async createPlayer() {
+    // Create basic player mesh as fallback
     const geometry = new THREE.ConeGeometry(0.5, 2, 8);
     const material = new THREE.MeshStandardMaterial({ 
       color: this.colors.player,
@@ -400,12 +478,13 @@ class Game3D {
       targetVelocity: new THREE.Vector3(),
       speed: 10,
       rotation: 0,
-      isMoving: false
+      isMoving: false,
+      lastAction: null
     };
     this.scene.add(this.player);
     
-    // Load Meshy character model
-    this.loadMeshyCharacter();
+    // Try to load Meshy AI character model
+    await this.loadMeshyCharacter();
     
     // Add player indicator ring
     const ringGeometry = new THREE.RingGeometry(0.8, 1, 32);
@@ -419,6 +498,102 @@ class Game3D {
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.1;
     this.player.add(ring);
+  }
+  
+  /**
+   * Load Meshy AI character model
+   */
+  async loadMeshyCharacter() {
+    try {
+      // Check if GLTFLoader is available in THREE
+      if (!THREE.GLTFLoader) {
+        console.warn('GLTFLoader not available, using default player model');
+        return;
+      }
+      
+      const loader = new THREE.GLTFLoader();
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(
+          this.config.meshyCharacterPath,
+          resolve,
+          (progress) => {
+            console.log(`Loading Meshy character: ${(progress.loaded / progress.total * 100).toFixed(0)}%`);
+          },
+          reject
+        );
+      });
+      
+      console.log('✓ Meshy AI character loaded successfully');
+      
+      // Replace player mesh with loaded model
+      const character = gltf.scene;
+      character.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+      character.position.y = 0;
+      character.traverse((node) => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+        }
+      });
+      
+      // Remove old mesh, add new model
+      const oldRing = this.player.children.find(c => c.geometry?.type === 'RingGeometry');
+      this.scene.remove(this.player);
+      this.player = character;
+      this.player.position.y = 1;
+      this.player.userData = {
+        velocity: new THREE.Vector3(),
+        targetVelocity: new THREE.Vector3(),
+        speed: 10,
+        rotation: 0,
+        isMoving: false,
+        lastAction: null
+      };
+      if (oldRing) this.player.add(oldRing);
+      this.scene.add(this.player);
+      
+      // Store animations if available
+      if (gltf.animations && gltf.animations.length > 0) {
+        this.mixer = new THREE.AnimationMixer(character);
+        gltf.animations.forEach(clip => {
+          console.log(`Animation available: ${clip.name}`);
+        });
+      }
+      
+    } catch (error) {
+      console.warn('Could not load Meshy character, using default:', error.message);
+    }
+  }
+  
+  /**
+   * Spawn new enemies using new EnemySystem
+   */
+  spawnNewEnemies(observerCount, punisherCount, distorterCount, normalCount = 0) {
+    if (!this.enemySystem) {
+      console.warn('EnemySystem not initialized');
+      return;
+    }
+    
+    const spawnEnemy = (type) => {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 30 + Math.random() * 30;
+      const position = new THREE.Vector3(
+        Math.cos(angle) * distance,
+        1,
+        Math.sin(angle) * distance
+      );
+      
+      const enemy = this.enemySystem.createEnemy(position, type);
+      if (enemy) {
+        this.enemies.push(enemy);
+      }
+    };
+    
+    for (let i = 0; i < observerCount; i++) spawnEnemy('OBSERVER');
+    for (let i = 0; i < punisherCount; i++) spawnEnemy('PUNISHER');
+    for (let i = 0; i < distorterCount; i++) spawnEnemy('DISTORTER');
+    
+    console.log(`✓ Spawned ${observerCount + punisherCount + distorterCount} new enemies`);
   }
   
   /**
@@ -627,6 +802,44 @@ class Game3D {
       <div>ESC - Pause</div>
     `;
     hudContainer.appendChild(controlsHint);
+    
+    // NEW: Intent Scores display (bottom-right)
+    const intentContainer = document.createElement('div');
+    intentContainer.style.cssText = `
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 200px;
+      font-size: 12px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #4488ff;
+    `;
+    intentContainer.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px; color: #4488ff;">INTENT ANALYSIS</div>
+      <div id="intent-scores"></div>
+    `;
+    hudContainer.appendChild(intentContainer);
+    
+    // NEW: Power-Up Status (mid-right)
+    const powerUpContainer = document.createElement('div');
+    powerUpContainer.style.cssText = `
+      position: absolute;
+      top: 120px;
+      right: 20px;
+      width: 180px;
+      font-size: 12px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ffaa00;
+    `;
+    powerUpContainer.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 8px; color: #ffaa00;">ACTIVE EFFECTS</div>
+      <div id="powerup-status"></div>
+    `;
+    hudContainer.appendChild(powerUpContainer);
   }
   
   /**
@@ -680,6 +893,9 @@ class Game3D {
   /**
    * Use ability
    */
+  /**
+   * Use ability
+   */
   useAbility(index) {
     if (this.paused) return;
     
@@ -690,6 +906,17 @@ class Game3D {
     }
     
     ability.cooldown = ability.maxCooldown;
+    
+    // NEW: Track action for intent system
+    const actionTypes = ['attack', 'defend', 'dash', 'special'];
+    if (this.player && this.player.userData) {
+      this.player.userData.lastAction = actionTypes[index];
+    }
+    
+    // NEW: Register reaction for intent tracker (player reacting to threat)
+    if (this.intentTracker && (index === 1 || index === 2)) { // Defend or dash
+      this.intentTracker.registerReaction(actionTypes[index]);
+    }
     
     // Special effects based on ability
     switch (index) {
@@ -935,9 +1162,12 @@ class Game3D {
   /**
    * Update HUD
    */
+  /**
+   * Update HUD
+   */
   updateHUD() {
     // Health bar
-    const healthPercent = (this.playerHealth / 100) * 100;
+    const healthPercent = (this.playerHealth / this.playerMaxHealth) * 100;
     const healthBar = document.getElementById('health-bar');
     if (healthBar) {
       healthBar.style.width = `${healthPercent}%`;
@@ -956,6 +1186,53 @@ class Game3D {
         cooldownEl.style.height = `${cooldownPercent}%`;
       }
     });
+    
+    // NEW: Update Intent Scores display
+    if (this.intentTracker) {
+      const intentScores = this.intentTracker.getIntentScores();
+      const intentContainer = document.getElementById('intent-scores');
+      
+      if (intentContainer) {
+        const html = Object.entries(intentScores).map(([intent, score]) => {
+          const percent = Math.round(score * 100);
+          const color = score > 0.7 ? '#ff4444' : score > 0.5 ? '#ffaa44' : '#44ff44';
+          return `
+            <div style="margin-bottom: 5px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                <span>${intent.toUpperCase()}</span>
+                <span>${percent}%</span>
+              </div>
+              <div style="width: 100%; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
+                <div style="width: ${percent}%; height: 100%; background: ${color};"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        intentContainer.innerHTML = html;
+      }
+    }
+    
+    // NEW: Update Power-Up Status
+    if (this.powerUpSystem) {
+      const powerUpUI = this.powerUpSystem.getUIData();
+      const powerUpContainer = document.getElementById('powerup-status');
+      
+      if (powerUpContainer) {
+        const html = powerUpUI.map(pup => {
+          const percent = Math.round((pup.remaining / pup.total) * 100);
+          const colorHex = pup.color.toString(16).padStart(6, '0');
+          return `
+            <div style="margin-bottom: 5px; padding: 5px; background: rgba(${parseInt(colorHex.substr(0,2), 16)}, ${parseInt(colorHex.substr(2,2), 16)}, ${parseInt(colorHex.substr(4,2), 16)}, 0.2); border-radius: 3px;">
+              <div style="font-size: 10px; font-weight: bold;">${pup.name}</div>
+              <div style="width: 100%; height: 3px; background: #333; border-radius: 2px; overflow: hidden; margin-top: 2px;">
+                <div style="width: ${percent}%; height: 100%; background: #${colorHex};"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        powerUpContainer.innerHTML = html || '<div style="font-size: 10px; opacity: 0.5;">No active effects</div>';
+      }
+    }
     
     // Enemy indicators (off-screen arrows)
     this.updateEnemyIndicators();
@@ -1334,6 +1611,9 @@ class Game3D {
   /**
    * Take damage
    */
+  /**
+   * Take damage
+   */
   takeDamage(amount) {
     this.playerHealth = Math.max(0, this.playerHealth - amount);
     
@@ -1359,10 +1639,54 @@ class Game3D {
   }
   
   /**
-   * Game over
+   * Game over - show death screen with judgment
    */
   gameOver() {
     this.paused = true;
+    
+    // NEW: Show death screen with judgment
+    if (this.deathScreen) {
+      this.deathScreen.show(() => {
+        // Restart game
+        this.restartGame();
+      });
+    } else {
+      // Fallback to old game over screen
+      this.showOldGameOver();
+    }
+  }
+  
+  /**
+   * Restart game after death
+   */
+  restartGame() {
+    // Reset player
+    this.playerHealth = this.playerMaxHealth;
+    this.player.position.set(0, 1, 0);
+    this.player.userData.velocity.set(0, 0, 0);
+    
+    // Remove all enemies
+    this.enemies.forEach(enemy => this.scene.remove(enemy));
+    this.enemies = [];
+    
+    // Respawn enemies
+    if (this.enemySystem) {
+      this.spawnNewEnemies(2, 1, 1, 1);
+    }
+    
+    // Reset intent tracker
+    if (this.intentTracker) {
+      this.intentTracker = new window.IntentTracker();
+    }
+    
+    // Unpause
+    this.paused = false;
+  }
+  
+  /**
+   * Old game over screen (fallback)
+   */
+  showOldGameOver() {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed;
@@ -1390,7 +1714,47 @@ class Game3D {
   /**
    * Update interactive elements
    */
+  /**
+   * Update interactive elements
+   */
   updateInteractiveElements(delta) {
+    // NEW: Check for power-up collection
+    if (this.powerUpSystem) {
+      const powerUpPickups = this.scene.children.filter(obj => 
+        obj.userData && obj.userData.type === 'powerUp' && !obj.userData.collected
+      );
+      
+      powerUpPickups.forEach(pickup => {
+        const distToPlayer = this.player.position.distanceTo(pickup.position);
+        if (distToPlayer < 2) {
+          pickup.userData.collected = true;
+          this.scene.remove(pickup);
+          
+          // Activate power-up
+          this.powerUpSystem.activatePowerUp(
+            pickup.userData.powerUpType,
+            (msg, type) => this.showNotification(msg, type)
+          );
+          
+          // Track action for intent system
+          if (this.player.userData) {
+            this.player.userData.lastAction = 'pickup';
+          }
+          
+          // Respawn after delay
+          setTimeout(() => {
+            const newPickup = this.powerUpSystem.createPowerUpPickup(
+              pickup.position,
+              pickup.userData.powerUpType
+            );
+          }, 20000);
+        } else {
+          // Animate power-up
+          this.powerUpSystem.animatePowerUpPickup(pickup, delta);
+        }
+      });
+    }
+    
     // Update platforms
     this.platforms.forEach(platform => {
       const distToPlayer = this.player.position.distanceTo(platform.position);
@@ -1684,7 +2048,71 @@ class Game3D {
     
     if (!this.paused) {
       this.updatePlayer(delta);
-      this.updateEnemies(delta);
+      
+      // NEW: Record frame data for intent tracking
+      if (this.intentTracker && this.player) {
+        const playerData = {
+          position: this.player.position,
+          velocity: this.player.userData.velocity,
+          lastAction: this.player.userData.lastAction
+        };
+        this.intentTracker.recordFrame(playerData, this.enemies, delta);
+      }
+      
+      // NEW: Update enemies with new system
+      if (this.enemySystem) {
+        const powerUpEffects = this.powerUpSystem ? this.powerUpSystem.getActiveEffects() : null;
+        this.enemies.forEach(enemy => {
+          this.enemySystem.updateEnemy(enemy, this.player, delta, powerUpEffects);
+          
+          // Check for pending damage from enemy attacks
+          if (enemy.userData.pendingPlayerDamage) {
+            this.takeDamage(enemy.userData.pendingPlayerDamage);
+            enemy.userData.pendingPlayerDamage = 0;
+            
+            // Register reaction for intent tracker
+            if (this.intentTracker) {
+              this.intentTracker.registerReaction('hit_by_enemy');
+            }
+          }
+          
+          // Check for spike damage on enemies
+          if (enemy.userData.pendingSpikeHit) {
+            enemy.userData.health -= enemy.userData.spikeHitDamage || 15;
+            enemy.userData.pendingSpikeHit = false;
+            if (enemy.userData.health <= 0) {
+              this.removeEnemy(enemy);
+            }
+          }
+        });
+      } else {
+        // Fallback to old system
+        this.updateEnemies(delta);
+      }
+      
+      // NEW: Update world reactions
+      if (this.worldReactions) {
+        this.worldReactions.update(this.player, this.enemies, delta);
+        
+        // Check for spike damage on player
+        this.worldReactions.spikes.forEach(spike => {
+          if (spike.userData.pendingPlayerDamage) {
+            this.takeDamage(spike.userData.pendingPlayerDamage);
+            spike.userData.pendingPlayerDamage = 0;
+          }
+        });
+      }
+      
+      // NEW: Update power-up system
+      if (this.powerUpSystem) {
+        this.powerUpSystem.update(delta, this.enemies);
+      }
+      
+      // NEW: Update map dynamic elements
+      if (this.mapGenerator) {
+        this.mapGenerator.updateDynamicElements(this.player, delta);
+      }
+      
       this.updateParticles(delta);
       this.updateCamera(delta);
       this.updateInteractiveElements(delta);
