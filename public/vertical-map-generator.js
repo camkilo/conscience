@@ -1,6 +1,7 @@
 /**
  * 3D Vertical Map Generator
  * Creates interconnected behavior zones across multiple height layers
+ * Auto-generates Rapier physics colliders for all walkable surfaces
  */
 
 class VerticalMapGenerator {
@@ -8,13 +9,19 @@ class VerticalMapGenerator {
     this.scene = scene;
     this.zones = [];
     this.structures = [];
+    this.colliders = []; // Track all physics colliders
   }
   
   /**
-   * Generate complete vertical map with behavior zones
+   * Generate complete vertical map with behavior zones and physics colliders
+   * @param {RAPIER.World} physicsWorld - Rapier physics world for collider creation
    */
-  generateMap() {
+  generateMap(physicsWorld) {
     const THREE = window.THREE;
+    const RAPIER = window.RAPIER;
+    
+    // Store physics world reference
+    this.physicsWorld = physicsWorld;
     
     // Clear existing structures
     this.clearMap();
@@ -73,15 +80,15 @@ class VerticalMapGenerator {
       }
     ];
     
-    // Create zones
+    // Create zones with auto-generated colliders
     zoneDefinitions.forEach(zoneDef => {
       this.createBehaviorZone(zoneDef);
     });
     
-    // Connect zones with ramps and bridges
+    // Connect zones with ramps and bridges (with colliders)
     this.connectZones(zoneDefinitions);
     
-    // Add elevators
+    // Add elevators with colliders
     this.createElevator(new THREE.Vector3(-10, 0, 0), 15);
     this.createElevator(new THREE.Vector3(10, 0, 0), 12);
     
@@ -92,10 +99,11 @@ class VerticalMapGenerator {
   }
   
   /**
-   * Create a behavior zone
+   * Create a behavior zone with physics collider
    */
   createBehaviorZone(zoneDef) {
     const THREE = window.THREE;
+    const RAPIER = window.RAPIER;
     
     // Main platform
     const platformGeometry = new THREE.BoxGeometry(zoneDef.size, 1, zoneDef.size);
@@ -128,6 +136,18 @@ class VerticalMapGenerator {
     this.scene.add(platform);
     this.zones.push(platform);
     
+    // Create physics collider for platform
+    if (this.physicsWorld && RAPIER) {
+      this.createBoxCollider(
+        zoneDef.centerX,
+        zoneDef.heightLevel,
+        zoneDef.centerZ,
+        zoneDef.size / 2,
+        0.5,
+        zoneDef.size / 2
+      );
+    }
+    
     // Add zone-specific structures
     this.addZoneStructures(zoneDef, platform);
     
@@ -145,50 +165,82 @@ class VerticalMapGenerator {
   }
   
   /**
-   * Add structures specific to zone behavior
+   * Create a box collider for a static object
+   */
+  createBoxCollider(x, y, z, halfExtentX, halfExtentY, halfExtentZ, rotation = null) {
+    const RAPIER = window.RAPIER;
+    if (!this.physicsWorld || !RAPIER) return;
+    
+    // Create rigid body descriptor (static, mass = 0)
+    const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
+      .setTranslation(x, y, z);
+    
+    if (rotation) {
+      rigidBodyDesc.setRotation(rotation);
+    }
+    
+    const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
+    
+    // Create box collider
+    const colliderDesc = RAPIER.ColliderDesc.cuboid(halfExtentX, halfExtentY, halfExtentZ)
+      .setFriction(0.4)
+      .setRestitution(0.1);
+    
+    const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
+    this.colliders.push({ body: rigidBody, collider });
+    
+    return { body: rigidBody, collider };
+  }
+  
+  /**
+   * Add structures specific to zone behavior with physics colliders
    */
   addZoneStructures(zoneDef, platform) {
     const THREE = window.THREE;
     
     switch (zoneDef.behavior) {
       case 'rewards_aggression':
-        // Add cover blocks for tactical combat
+        // Add cover blocks for tactical combat (with colliders)
         for (let i = 0; i < 5; i++) {
           const coverGeometry = new THREE.BoxGeometry(2, 2, 2);
           const coverMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
           const cover = new THREE.Mesh(coverGeometry, coverMaterial);
-          cover.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.7,
-            zoneDef.heightLevel + 1.5,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.7
-          );
+          const x = zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.7;
+          const y = zoneDef.heightLevel + 1.5;
+          const z = zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.7;
+          cover.position.set(x, y, z);
           cover.castShadow = true;
           cover.receiveShadow = true;
           this.scene.add(cover);
           this.structures.push(cover);
+          
+          // Add collider
+          this.createBoxCollider(x, y, z, 1, 1, 1);
         }
         break;
         
       case 'requires_precision':
-        // Add narrow platforms that require precise jumping
+        // Add narrow platforms that require precise jumping (with colliders)
         for (let i = 0; i < 4; i++) {
           const narrowGeometry = new THREE.BoxGeometry(3, 0.5, 1);
           const narrowMaterial = new THREE.MeshStandardMaterial({ color: zoneDef.color });
           const narrow = new THREE.Mesh(narrowGeometry, narrowMaterial);
-          narrow.position.set(
-            zoneDef.centerX + (i - 2) * 4,
-            zoneDef.heightLevel + 2 + Math.random() * 2,
-            zoneDef.centerZ
-          );
+          const x = zoneDef.centerX + (i - 2) * 4;
+          const y = zoneDef.heightLevel + 2 + Math.random() * 2;
+          const z = zoneDef.centerZ;
+          narrow.position.set(x, y, z);
           narrow.castShadow = true;
           narrow.receiveShadow = true;
           this.scene.add(narrow);
           this.structures.push(narrow);
+          
+          // Add collider for walkable narrow platform
+          this.createBoxCollider(x, y, z, 1.5, 0.25, 0.5);
         }
         break;
         
       case 'tests_evasion':
-        // Add maze walls
+        // Add maze walls (with colliders)
         const wallPositions = [
           [0, 5], [5, 0], [-5, 0], [0, -5],
           [5, 5], [-5, 5], [5, -5], [-5, -5]
@@ -197,20 +249,22 @@ class VerticalMapGenerator {
           const wallGeometry = new THREE.BoxGeometry(2, 4, 8);
           const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x336633 });
           const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-          wall.position.set(
-            zoneDef.centerX + dx,
-            zoneDef.heightLevel + 2,
-            zoneDef.centerZ + dz
-          );
+          const x = zoneDef.centerX + dx;
+          const y = zoneDef.heightLevel + 2;
+          const z = zoneDef.centerZ + dz;
+          wall.position.set(x, y, z);
           wall.castShadow = true;
           wall.receiveShadow = true;
           this.scene.add(wall);
           this.structures.push(wall);
+          
+          // Add collider for walls
+          this.createBoxCollider(x, y, z, 1, 2, 4);
         });
         break;
         
       case 'tempts_greed':
-        // Add pillars with glowing tops (power-up spawns)
+        // Add pillars with glowing tops (power-up spawns) (with colliders)
         for (let i = 0; i < 3; i++) {
           const pillarGeometry = new THREE.CylinderGeometry(0.8, 0.8, 5, 8);
           const pillarMaterial = new THREE.MeshStandardMaterial({ 
@@ -219,21 +273,23 @@ class VerticalMapGenerator {
             emissiveIntensity: 0.3
           });
           const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-          pillar.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.6,
-            zoneDef.heightLevel + 2.5,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.6
-          );
+          const x = zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.6;
+          const y = zoneDef.heightLevel + 2.5;
+          const z = zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.6;
+          pillar.position.set(x, y, z);
           pillar.castShadow = true;
           pillar.receiveShadow = true;
           pillar.userData = { type: 'powerUpSpawn' };
           this.scene.add(pillar);
           this.structures.push(pillar);
+          
+          // Add cylinder collider for pillar
+          this.createCylinderCollider(x, y, z, 0.8, 2.5);
         }
         break;
         
       case 'induces_panic':
-        // Add unstable platforms (will be made collapsible)
+        // Add unstable platforms (will be made collapsible) (with colliders)
         for (let i = 0; i < 6; i++) {
           const unstableGeometry = new THREE.BoxGeometry(3, 0.3, 3);
           const unstableMaterial = new THREE.MeshStandardMaterial({ 
@@ -242,11 +298,10 @@ class VerticalMapGenerator {
             opacity: 0.8
           });
           const unstable = new THREE.Mesh(unstableGeometry, unstableMaterial);
-          unstable.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.8,
-            zoneDef.heightLevel + 1,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.8
-          );
+          const x = zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.8;
+          const y = zoneDef.heightLevel + 1;
+          const z = zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.8;
+          unstable.position.set(x, y, z);
           unstable.castShadow = true;
           unstable.receiveShadow = true;
           unstable.userData = { 
@@ -256,9 +311,36 @@ class VerticalMapGenerator {
           };
           this.scene.add(unstable);
           this.structures.push(unstable);
+          
+          // Add collider for unstable platform
+          this.createBoxCollider(x, y, z, 1.5, 0.15, 1.5);
         }
         break;
     }
+  }
+  
+  /**
+   * Create a cylinder collider for a static object
+   */
+  createCylinderCollider(x, y, z, radius, halfHeight) {
+    const RAPIER = window.RAPIER;
+    if (!this.physicsWorld || !RAPIER) return;
+    
+    // Create rigid body descriptor (static, mass = 0)
+    const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
+      .setTranslation(x, y, z);
+    
+    const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
+    
+    // Create cylinder collider
+    const colliderDesc = RAPIER.ColliderDesc.cylinder(halfHeight, radius)
+      .setFriction(0.4)
+      .setRestitution(0.1);
+    
+    const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
+    this.colliders.push({ body: rigidBody, collider });
+    
+    return { body: rigidBody, collider };
   }
   
   /**
@@ -289,10 +371,11 @@ class VerticalMapGenerator {
   }
   
   /**
-   * Create ramp between zones
+   * Create ramp between zones with physics collider
    */
   createRamp(zoneA, zoneB) {
     const THREE = window.THREE;
+    const RAPIER = window.RAPIER;
     
     const startPos = new THREE.Vector3(zoneA.centerX, zoneA.heightLevel, zoneA.centerZ);
     const endPos = new THREE.Vector3(zoneB.centerX, zoneB.heightLevel, zoneB.centerZ);
@@ -300,6 +383,7 @@ class VerticalMapGenerator {
     const midPoint = startPos.clone().add(endPos).multiplyScalar(0.5);
     const distance = startPos.distanceTo(endPos);
     const angle = Math.atan2(endPos.z - startPos.z, endPos.x - startPos.x);
+    const tiltAngle = Math.atan2(endPos.y - startPos.y, distance);
     
     const rampGeometry = new THREE.BoxGeometry(distance, 0.5, 4);
     const rampMaterial = new THREE.MeshStandardMaterial({ 
@@ -310,19 +394,37 @@ class VerticalMapGenerator {
     const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
     ramp.position.copy(midPoint);
     ramp.rotation.y = angle;
-    ramp.rotation.z = Math.atan2(endPos.y - startPos.y, distance);
+    ramp.rotation.z = tiltAngle;
     ramp.castShadow = true;
     ramp.receiveShadow = true;
     
     this.scene.add(ramp);
     this.structures.push(ramp);
+    
+    // Create physics collider for ramp
+    if (this.physicsWorld && RAPIER) {
+      // Create rotated box collider
+      const quat = new THREE.Quaternion();
+      quat.setFromEuler(new THREE.Euler(0, angle, tiltAngle));
+      
+      this.createBoxCollider(
+        midPoint.x,
+        midPoint.y,
+        midPoint.z,
+        distance / 2,
+        0.25,
+        2,
+        { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
+      );
+    }
   }
   
   /**
-   * Create bridge between zones
+   * Create bridge between zones with physics collider
    */
   createBridge(zoneA, zoneB) {
     const THREE = window.THREE;
+    const RAPIER = window.RAPIER;
     
     const startPos = new THREE.Vector3(zoneA.centerX, zoneA.heightLevel + 0.5, zoneA.centerZ);
     const endPos = new THREE.Vector3(zoneB.centerX, zoneB.heightLevel + 0.5, zoneB.centerZ);
@@ -345,13 +447,30 @@ class VerticalMapGenerator {
     
     this.scene.add(bridge);
     this.structures.push(bridge);
+    
+    // Create physics collider for bridge
+    if (this.physicsWorld && RAPIER) {
+      const quat = new THREE.Quaternion();
+      quat.setFromEuler(new THREE.Euler(0, angle, 0));
+      
+      this.createBoxCollider(
+        midPoint.x,
+        midPoint.y,
+        midPoint.z,
+        distance / 2,
+        0.15,
+        1.5,
+        { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
+      );
+    }
   }
   
   /**
-   * Create elevator platform
+   * Create elevator platform with physics collider
    */
   createElevator(position, maxHeight) {
     const THREE = window.THREE;
+    const RAPIER = window.RAPIER;
     
     const elevatorGeometry = new THREE.CylinderGeometry(2, 2, 0.5, 16);
     const elevatorMaterial = new THREE.MeshStandardMaterial({ 
@@ -379,6 +498,11 @@ class VerticalMapGenerator {
     
     this.scene.add(elevator);
     this.structures.push(elevator);
+    
+    // Create physics collider for elevator
+    if (this.physicsWorld && RAPIER) {
+      this.createCylinderCollider(position.x, position.y, position.z, 2, 0.25);
+    }
     
     return elevator;
   }
@@ -501,13 +625,24 @@ class VerticalMapGenerator {
   }
   
   /**
-   * Clear existing map
+   * Clear existing map and physics colliders
    */
   clearMap() {
     this.zones.forEach(zone => this.scene.remove(zone));
     this.structures.forEach(structure => this.scene.remove(structure));
+    
+    // Remove physics colliders
+    if (this.physicsWorld && this.colliders.length > 0) {
+      this.colliders.forEach(({ body }) => {
+        if (body && this.physicsWorld) {
+          this.physicsWorld.removeRigidBody(body);
+        }
+      });
+    }
+    
     this.zones = [];
     this.structures = [];
+    this.colliders = [];
   }
 }
 

@@ -146,22 +146,22 @@ class Game3D {
   }
   
   /**
-   * Wait for GLTFLoader and CANNON to be loaded
+   * Wait for GLTFLoader and RAPIER to be loaded
    */
   async waitForDependencies() {
     const maxWait = 5000; // 5 seconds timeout
     const startTime = Date.now();
     
-    while (!window.CANNON || !window.THREE.GLTFLoader) {
+    while (!window.RAPIER || !window.THREE.GLTFLoader) {
       if (Date.now() - startTime > maxWait) {
-        console.warn('Timeout waiting for dependencies. CANNON:', !!window.CANNON, 'GLTFLoader:', !!window.THREE.GLTFLoader);
+        console.warn('Timeout waiting for dependencies. RAPIER:', !!window.RAPIER, 'GLTFLoader:', !!window.THREE.GLTFLoader);
         break;
       }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    if (window.CANNON) {
-      console.log('✓ CANNON physics ready');
+    if (window.RAPIER) {
+      console.log('✓ RAPIER physics ready');
     }
     if (window.THREE.GLTFLoader) {
       console.log('✓ GLTFLoader ready');
@@ -173,30 +173,24 @@ class Game3D {
    * Initialize physics world
    */
   initPhysics() {
-    if (!window.CANNON) {
-      console.warn('CANNON not available, physics disabled');
+    if (!window.RAPIER) {
+      console.warn('RAPIER not available, physics disabled');
       this.config.usePhysics = false;
       return;
     }
     
-    // Create physics world
-    this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -9.8, 0) // Earth gravity
-    });
+    // Create Rapier physics world
+    const gravity = { x: 0.0, y: -9.81, z: 0.0 };
+    this.world = new window.RAPIER.World(gravity);
     
-    // Configure world
-    this.world.broadphase = new CANNON.NaiveBroadphase();
-    this.world.solver.iterations = 10;
-    this.world.defaultContactMaterial.friction = 0.4;
-    
-    console.log('✓ Physics world initialized');
+    console.log('✓ Physics world initialized with Rapier');
   }
   
   /**
    * Initialize the 3D game
    */
   async init() {
-    // Wait for GLTFLoader and CANNON to be available
+    // Wait for GLTFLoader and RAPIER to be available
     await this.waitForDependencies();
     
     // Initialize physics world
@@ -339,114 +333,22 @@ class Game3D {
   }
   
   /**
-   * Create physics-based ground
-   */
-  createPhysicsGround() {
-    if (!this.world) return;
-    
-    const groundSize = 150;
-    
-    // Create visual ground mesh (simple colored plane for visual)
-    const groundGeo = new THREE.PlaneGeometry(groundSize * 2, groundSize * 2);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x223344,
-      roughness: 0.8,
-      metalness: 0.2
-    });
-    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-    groundMesh.rotation.x = -Math.PI / 2;
-    groundMesh.receiveShadow = true;
-    groundMesh.position.y = 0;
-    this.scene.add(groundMesh);
-    
-    // Create static physics body for ground
-    const groundShape = new CANNON.Plane();
-    const groundBody = new CANNON.Body({
-      mass: 0, // Static body
-      shape: groundShape,
-      material: new CANNON.Material({ friction: 0.4, restitution: 0.3 })
-    });
-    
-    // Rotate to make it horizontal (Cannon uses different coordinate system)
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    groundBody.position.set(0, 0, 0);
-    
-    this.world.addBody(groundBody);
-    this.physicsBodies.push(groundBody);
-    
-    console.log('✓ Physics ground created');
-    
-    // Create some ramps with physics
-    this.createPhysicsRamps();
-  }
-  
-  /**
-   * Create ramps with static physics bodies
-   */
-  createPhysicsRamps() {
-    if (!this.world) return;
-    
-    const ramps = [
-      { pos: [20, 0, 20], size: [5, 0.5, 10], rot: [0, 0, Math.PI / 8] },
-      { pos: [-25, 0, -15], size: [8, 0.5, 8], rot: [0, Math.PI / 4, Math.PI / 10] },
-      { pos: [0, 0, -30], size: [10, 0.5, 5], rot: [-Math.PI / 10, 0, 0] }
-    ];
-    
-    ramps.forEach((rampData, index) => {
-      // Create visual mesh
-      const rampGeo = new THREE.BoxGeometry(...rampData.size);
-      const rampMat = new THREE.MeshStandardMaterial({
-        color: 0x446688,
-        roughness: 0.7,
-        metalness: 0.3
-      });
-      const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      rampMesh.position.set(...rampData.pos);
-      rampMesh.rotation.set(...rampData.rot);
-      rampMesh.castShadow = true;
-      rampMesh.receiveShadow = true;
-      this.scene.add(rampMesh);
-      
-      // Create physics body
-      const rampShape = new CANNON.Box(new CANNON.Vec3(...rampData.size.map(s => s / 2)));
-      const rampBody = new CANNON.Body({
-        mass: 0, // Static
-        shape: rampShape,
-        material: new CANNON.Material({ friction: 0.3, restitution: 0.2 })
-      });
-      rampBody.position.set(...rampData.pos);
-      rampBody.quaternion.setFromEuler(...rampData.rot);
-      
-      this.world.addBody(rampBody);
-      this.physicsBodies.push(rampBody);
-      
-      // Store reference for syncing
-      this.physicsObjects.push({ mesh: rampMesh, body: rampBody });
-    });
-    
-    console.log('✓ Physics ramps created');
-  }
-  
-  /**
    * Create game environment
    */
   async createEnvironment() {
     // Try to load GLB models for environment first
     await this.loadEnvironmentModels();
     
-    // Create ground using physics (if GLB didn't load)
-    if (this.config.usePhysics && !this.groundLoaded) {
-      this.createPhysicsGround();
-    }
+    // Do NOT create flat ground - vertical map generator will handle all surfaces
     
     // Grid helper (visual aid only, no physics)
     const grid = new THREE.GridHelper(300, 60, 0x444466, 0x222233);
     this.scene.add(grid);
     
-    // Generate vertical map with behavior zones
+    // Generate vertical map with behavior zones and auto-generated colliders
     if (this.mapGenerator) {
-      this.mapGenerator.generateMap();
-      console.log('✓ Vertical map with behavior zones generated');
+      this.mapGenerator.generateMap(this.world); // Pass physics world for collider generation
+      console.log('✓ Vertical map with behavior zones and colliders generated');
     }
     
     // Add world reaction platforms and spikes
@@ -703,35 +605,29 @@ class Game3D {
   createPlayerPhysicsBody() {
     if (!this.world) return;
     
-    // Create capsule shape using cylinder + 2 spheres
+    const RAPIER = window.RAPIER;
+    
+    // Create capsule shape
     const radius = 0.4;
-    const cylinderHeight = 0.6;
+    const halfHeight = 0.6; // Half of cylinder height
     
-    // Create compound shape for capsule
-    const capsuleShape = new CANNON.Cylinder(radius, radius, cylinderHeight, 16);
-    const topSphere = new CANNON.Sphere(radius);
-    const bottomSphere = new CANNON.Sphere(radius);
+    // Create rigid body descriptor for player (dynamic body)
+    const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(0, 2, 0)
+      .setLinearDamping(this.physics.damping)
+      .setAngularDamping(0.99)
+      .lockRotations(); // Lock rotations for upright character
     
-    // Create player body
-    this.playerBody = new CANNON.Body({
-      mass: 1, // Dynamic body
-      shape: capsuleShape,
-      position: new CANNON.Vec3(0, 2, 0),
-      linearDamping: this.physics.damping,
-      angularDamping: 0.99, // Prevent rotation
-      fixedRotation: false, // Allow controlled rotation
-      material: new CANNON.Material({ friction: 0.3, restitution: 0.0 })
-    });
+    this.playerBody = this.world.createRigidBody(rigidBodyDesc);
     
-    // Add sphere shapes to create capsule
-    this.playerBody.addShape(topSphere, new CANNON.Vec3(0, cylinderHeight / 2, 0));
-    this.playerBody.addShape(bottomSphere, new CANNON.Vec3(0, -cylinderHeight / 2, 0));
+    // Create capsule collider
+    const colliderDesc = RAPIER.ColliderDesc.capsule(halfHeight, radius)
+      .setFriction(0.3)
+      .setRestitution(0.0);
     
-    // Lock rotation on X and Z axes (only allow Y rotation)
-    this.playerBody.angularFactor = new CANNON.Vec3(0, 1, 0);
+    this.world.createCollider(colliderDesc, this.playerBody);
     
-    this.world.addBody(this.playerBody);
-    console.log('✓ Player physics body created (capsule collider, dynamic)');
+    console.log('✓ Player physics body created (capsule collider, dynamic, Rapier)');
   }
   
   /**
@@ -1660,34 +1556,36 @@ class Game3D {
     if (!this.playerBody) return;
     
     const moveForce = this.physics.moveForce;
-    const force = new CANNON.Vec3();
+    const forceVec = { x: 0, y: 0, z: 0 };
     
     // WASD movement - apply forces
-    if (this.keys['w']) force.z -= moveForce;
-    if (this.keys['s']) force.z += moveForce;
-    if (this.keys['a']) force.x -= moveForce;
-    if (this.keys['d']) force.x += moveForce;
+    if (this.keys['w']) forceVec.z -= moveForce;
+    if (this.keys['s']) forceVec.z += moveForce;
+    if (this.keys['a']) forceVec.x -= moveForce;
+    if (this.keys['d']) forceVec.x += moveForce;
     
     // Apply movement force
-    if (force.length() > 0) {
-      this.playerBody.applyForce(force, this.playerBody.position);
+    if (Math.sqrt(forceVec.x * forceVec.x + forceVec.z * forceVec.z) > 0) {
+      this.playerBody.applyImpulse(forceVec, true);
       this.player.userData.isMoving = true;
     } else {
       this.player.userData.isMoving = false;
     }
     
     // Clamp velocity to max speed (horizontal only)
-    const vel = this.playerBody.velocity;
+    const vel = this.playerBody.linvel();
     const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
     if (horizontalSpeed > this.physics.maxSpeed) {
       const scale = this.physics.maxSpeed / horizontalSpeed;
-      this.playerBody.velocity.x *= scale;
-      this.playerBody.velocity.z *= scale;
+      this.playerBody.setLinvel({ x: vel.x * scale, y: vel.y, z: vel.z * scale }, true);
     }
     
     // Sync Three.js object with physics body
-    this.player.position.copy(this.playerBody.position);
-    this.player.quaternion.copy(this.playerBody.quaternion);
+    const position = this.playerBody.translation();
+    this.player.position.set(position.x, position.y, position.z);
+    
+    const rotation = this.playerBody.rotation();
+    this.player.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     
     // Keep player rotation upright (only Y-axis rotation)
     this.player.rotation.x = 0;
@@ -1695,13 +1593,13 @@ class Game3D {
     
     // Keep player in bounds (soft bounds)
     const boundSize = 90;
-    if (Math.abs(this.playerBody.position.x) > boundSize) {
-      this.playerBody.position.x = Math.sign(this.playerBody.position.x) * boundSize;
-      this.playerBody.velocity.x = 0;
+    if (Math.abs(position.x) > boundSize) {
+      this.playerBody.setTranslation({ x: Math.sign(position.x) * boundSize, y: position.y, z: position.z }, true);
+      this.playerBody.setLinvel({ x: 0, y: vel.y, z: vel.z }, true);
     }
-    if (Math.abs(this.playerBody.position.z) > boundSize) {
-      this.playerBody.position.z = Math.sign(this.playerBody.position.z) * boundSize;
-      this.playerBody.velocity.z = 0;
+    if (Math.abs(position.z) > boundSize) {
+      this.playerBody.setTranslation({ x: position.x, y: position.y, z: Math.sign(position.z) * boundSize }, true);
+      this.playerBody.setLinvel({ x: vel.x, y: vel.y, z: 0 }, true);
     }
   }
   
@@ -2348,7 +2246,7 @@ class Game3D {
     if (!this.paused) {
       // Step physics world
       if (this.world && this.config.usePhysics) {
-        this.world.step(1 / 60, delta, 3);
+        this.world.step();
       }
       
       this.updatePlayer(delta);
