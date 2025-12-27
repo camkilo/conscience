@@ -319,65 +319,10 @@ class Game3D {
    * Load Meshy character model
    */
   async loadMeshyCharacter() {
-    try {
-      if (typeof THREE.GLTFLoader === 'undefined') {
-        console.log('GLTFLoader not available, using default geometry');
-        return;
-      }
-      
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        '/Meshy_AI_Character_output.glb',
-        (gltf) => {
-          // Remove the default geometry
-          const oldGeometry = this.player.geometry;
-          const oldMaterial = this.player.material;
-          
-          // Add the loaded model as a child
-          const model = gltf.scene;
-          model.scale.set(0.5, 0.5, 0.5);
-          model.position.y = -1;
-          
-          // Enable shadows on all meshes
-          model.traverse((node) => {
-            if (node.isMesh) {
-              node.castShadow = true;
-              node.receiveShadow = true;
-            }
-          });
-          
-          this.player.add(model);
-          this.player.userData.model = model;
-          this.player.userData.animations = gltf.animations;
-          
-          // Setup animation mixer if animations exist
-          if (gltf.animations && gltf.animations.length > 0) {
-            this.player.userData.mixer = new THREE.AnimationMixer(model);
-            this.player.userData.actions = {};
-            
-            gltf.animations.forEach((clip) => {
-              const action = this.player.userData.mixer.clipAction(clip);
-              this.player.userData.actions[clip.name] = action;
-            });
-            
-            // Play idle animation if available
-            if (this.player.userData.actions['Idle']) {
-              this.player.userData.actions['Idle'].play();
-            }
-          }
-          
-          console.log('Meshy character loaded successfully');
-        },
-        (progress) => {
-          console.log('Loading model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
-        },
-        (error) => {
-          console.log('Error loading Meshy character:', error);
-        }
-      );
-    } catch (error) {
-      console.log('Using default player geometry:', error);
-    }
+    // Note: GLTFLoader requires ES6 modules which aren't used in this implementation
+    // The game will use the default geometry for now
+    // To enable Meshy character loading, the codebase would need to be refactored to use ES6 modules
+    console.log('Using default player geometry (Meshy character requires ES6 module setup)');
   }
   
   /**
@@ -437,9 +382,9 @@ class Game3D {
       });
       const enemy = new THREE.Mesh(geometry, material);
       enemy.position.set(
-        (Math.random() - 0.5) * 60,
+        (Math.random() - 0.5) * 80 + (Math.random() > 0.5 ? 30 : -30),
         1,
-        (Math.random() - 0.5) * 60
+        (Math.random() - 0.5) * 80 + (Math.random() > 0.5 ? 30 : -30)
       );
       enemy.castShadow = true;
       enemy.userData = {
@@ -472,7 +417,7 @@ class Game3D {
         size: 0.4,
         health: 30,
         speed: 5,
-        damage: 3,
+        damage: 1,
         attackRange: 2,
         detectionRange: 20,
         attackCooldown: 0.5,
@@ -483,7 +428,7 @@ class Game3D {
         size: 0.6,
         health: 100,
         speed: 3,
-        damage: 5,
+        damage: 2,
         attackRange: 2.5,
         detectionRange: 25,
         attackCooldown: 1,
@@ -494,7 +439,7 @@ class Game3D {
         size: 0.9,
         health: 200,
         speed: 1.5,
-        damage: 15,
+        damage: 8,
         attackRange: 3,
         detectionRange: 30,
         attackCooldown: 2,
@@ -505,7 +450,7 @@ class Game3D {
         size: 0.7,
         health: 80,
         speed: 2,
-        damage: 8,
+        damage: 5,
         attackRange: 10,
         detectionRange: 35,
         attackCooldown: 3,
@@ -1214,30 +1159,6 @@ class Game3D {
         currentVel.z
       );
       this.player.rotation.y = this.player.userData.rotation;
-    }
-    
-    // Update animation mixer if available
-    if (this.player.userData.mixer) {
-      this.player.userData.mixer.update(delta);
-      
-      // Switch between animations based on movement
-      if (this.player.userData.actions) {
-        if (this.player.userData.isMoving) {
-          if (this.player.userData.actions['Walk']) {
-            this.player.userData.actions['Walk'].play();
-            if (this.player.userData.actions['Idle']) {
-              this.player.userData.actions['Idle'].stop();
-            }
-          }
-        } else {
-          if (this.player.userData.actions['Idle']) {
-            this.player.userData.actions['Idle'].play();
-            if (this.player.userData.actions['Walk']) {
-              this.player.userData.actions['Walk'].stop();
-            }
-          }
-        }
-      }
     }
   }
   
