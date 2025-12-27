@@ -257,7 +257,8 @@ The 3D game mode features a full physics simulation:
 - **Player**: Dynamic rigid body with capsule collider
   - Mass: 1kg (responds to forces)
   - Movement: Force-based (not position teleportation)
-  - Collider: Capsule shape (cylinder + 2 spheres)
+  - Collider: Capsule shape (cylinder + 2 spheres - standard Cannon.js approach)
+  - Note: Fallback procedural geometry used when GLB models unavailable
   
 - **Environment**: Static rigid bodies
   - Ground: Infinite plane collider
@@ -265,7 +266,7 @@ The 3D game mode features a full physics simulation:
   - All static objects added to physics world
 
 - **Physics World**: Cannon.js integration
-  - Gravity: -20 m/s²
+  - Gravity: -9.8 m/s² (Earth gravity)
   - 60Hz simulation rate
   - Automatic collision detection and response
 

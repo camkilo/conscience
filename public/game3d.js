@@ -181,7 +181,7 @@ class Game3D {
     
     // Create physics world
     this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -20, 0) // Gravity
+      gravity: new CANNON.Vec3(0, -9.8, 0) // Earth gravity
     });
     
     // Configure world
@@ -626,7 +626,9 @@ class Game3D {
       this.scene.add(this.player);
       console.log('✓ Player model loaded from GLB');
     } else {
-      // Fallback: Create capsule-like player using cylinder and spheres
+      // Fallback: Create capsule-like player using procedural geometry
+      // NOTE: This fallback is intentional for when GLB models are missing/invalid
+      // The goal is to avoid placeholder meshes in final version with proper GLB models
       const group = new THREE.Group();
       
       // Body (cylinder)
