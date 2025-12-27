@@ -13,6 +13,7 @@ app.use(express.static('public'));
 app.use('/three', express.static('node_modules/three/build'));
 app.use('/three-jsm', express.static('node_modules/three/examples/jsm'));
 app.use('/cannon-es', express.static('node_modules/cannon-es/dist'));
+app.use('/@dimforge', express.static('node_modules/@dimforge'));
 
 // Root endpoint
 // Note: In production, add rate limiting middleware (e.g., express-rate-limit)
