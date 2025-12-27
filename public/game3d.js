@@ -33,10 +33,64 @@ class Game3D {
     this.playerEnergy = 100;
     this.playerScore = 0;
     
-    // Movement physics constants
-    this.accelerationFactor = 8;
-    this.maxSpeed = 8;
-    this.friction = 0.85;
+    // Movement physics configuration
+    this.physics = {
+      accelerationFactor: 8,
+      maxSpeed: 8,
+      friction: 0.85
+    };
+    
+    // Enemy tier configuration
+    this.enemyTypes = {
+      swarm: {
+        tier: 'swarm',
+        size: 0.4,
+        health: 30,
+        speed: 5,
+        damage: 1,
+        attackRange: 2,
+        detectionRange: 20,
+        attackCooldown: 0.5,
+        color: 0xff6666,
+        spawnWeight: 0.4
+      },
+      normal: {
+        tier: 'normal',
+        size: 0.6,
+        health: 100,
+        speed: 3,
+        damage: 2,
+        attackRange: 2.5,
+        detectionRange: 25,
+        attackCooldown: 1,
+        color: 0xff4444,
+        spawnWeight: 0.4
+      },
+      heavy: {
+        tier: 'heavy',
+        size: 0.9,
+        health: 200,
+        speed: 1.5,
+        damage: 8,
+        attackRange: 3,
+        detectionRange: 30,
+        attackCooldown: 2,
+        color: 0xff0000,
+        spawnWeight: 0.15
+      },
+      controller: {
+        tier: 'controller',
+        size: 0.7,
+        health: 80,
+        speed: 2,
+        damage: 5,
+        attackRange: 10,
+        detectionRange: 35,
+        attackCooldown: 3,
+        color: 0xff22ff,
+        spawnWeight: 0.05
+      }
+    };
     
     // Abilities
     this.abilities = [
@@ -317,12 +371,13 @@ class Game3D {
   
   /**
    * Load Meshy character model
+   * Note: Meshy character loading requires ES6 modules and GLTFLoader
+   * The current implementation uses global THREE without modules, so the default geometry is used
+   * To enable Meshy character: convert codebase to ES6 modules and import GLTFLoader properly
    */
   async loadMeshyCharacter() {
-    // Note: GLTFLoader requires ES6 modules which aren't used in this implementation
-    // The game will use the default geometry for now
-    // To enable Meshy character loading, the codebase would need to be refactored to use ES6 modules
-    console.log('Using default player geometry (Meshy character requires ES6 module setup)');
+    console.log('Using default player geometry');
+    // Future implementation would load /Meshy_AI_Character_output.glb here
   }
   
   /**
@@ -411,59 +466,21 @@ class Game3D {
    * Get random enemy type with different tiers
    */
   getRandomEnemyType() {
-    const types = [
-      {
-        tier: 'swarm',
-        size: 0.4,
-        health: 30,
-        speed: 5,
-        damage: 1,
-        attackRange: 2,
-        detectionRange: 20,
-        attackCooldown: 0.5,
-        color: 0xff6666
-      },
-      {
-        tier: 'normal',
-        size: 0.6,
-        health: 100,
-        speed: 3,
-        damage: 2,
-        attackRange: 2.5,
-        detectionRange: 25,
-        attackCooldown: 1,
-        color: 0xff4444
-      },
-      {
-        tier: 'heavy',
-        size: 0.9,
-        health: 200,
-        speed: 1.5,
-        damage: 8,
-        attackRange: 3,
-        detectionRange: 30,
-        attackCooldown: 2,
-        color: 0xff0000
-      },
-      {
-        tier: 'controller',
-        size: 0.7,
-        health: 80,
-        speed: 2,
-        damage: 5,
-        attackRange: 10,
-        detectionRange: 35,
-        attackCooldown: 3,
-        color: 0xff22ff
-      }
-    ];
+    const types = Object.values(this.enemyTypes);
     
-    // Weighted random selection favoring normal enemies
+    // Weighted random selection
     const rand = Math.random();
-    if (rand < 0.4) return types[0]; // swarm
-    if (rand < 0.8) return types[1]; // normal
-    if (rand < 0.95) return types[2]; // heavy
-    return types[3]; // controller
+    let cumulative = 0;
+    
+    for (const type of types) {
+      cumulative += type.spawnWeight;
+      if (rand < cumulative) {
+        return type;
+      }
+    }
+    
+    // Fallback to normal if something goes wrong
+    return this.enemyTypes.normal;
   }
   
   /**
@@ -1131,17 +1148,17 @@ class Game3D {
     // Smooth acceleration/deceleration
     const currentVel = this.player.userData.velocity;
     const targetDiff = targetVelocity.clone().sub(currentVel);
-    const acceleration = targetDiff.multiplyScalar(delta * this.accelerationFactor);
+    const acceleration = targetDiff.multiplyScalar(delta * this.physics.accelerationFactor);
     currentVel.add(acceleration);
     
     // Apply friction when not moving
     if (!this.player.userData.isMoving) {
-      currentVel.multiplyScalar(this.friction);
+      currentVel.multiplyScalar(this.physics.friction);
     }
     
     // Clamp to max speed
-    if (currentVel.length() > this.maxSpeed) {
-      currentVel.normalize().multiplyScalar(this.maxSpeed);
+    if (currentVel.length() > this.physics.maxSpeed) {
+      currentVel.normalize().multiplyScalar(this.physics.maxSpeed);
     }
     
     // Apply velocity to position
@@ -1569,9 +1586,9 @@ class Game3D {
         this.showNotification('+30 Health', 'info');
         break;
       case 'speed':
-        this.maxSpeed = 12;
+        this.physics.maxSpeed = 12;
         this.showNotification('Speed boost!', 'ability');
-        setTimeout(() => { this.maxSpeed = 8; }, 10000);
+        setTimeout(() => { this.physics.maxSpeed = 8; }, 10000);
         break;
       case 'power':
         this.playerScore += 50;
