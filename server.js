@@ -12,8 +12,9 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Root endpoint
+// Note: In production, add rate limiting middleware (e.g., express-rate-limit)
 app.get('/', (req, res) => {
-  res.sendFile('/home/runner/work/conscience/conscience/public/index.html');
+  res.sendFile('index.html', { root: 'public' });
 });
 
 // Health check endpoint
@@ -23,7 +24,7 @@ app.get('/health', (req, res) => {
 
 // Start new game session
 app.post('/api/session/start', (req, res) => {
-  const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const playerId = `player_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   const session = new GameSession(playerId);
   sessions.set(playerId, session);
 

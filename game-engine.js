@@ -297,7 +297,7 @@ export class ChoiceRipple {
       context: choice.context
     });
 
-    // Generate ripple effects
+    // Generate immediate ripple effects
     this.generateRipples(choice);
   }
 
@@ -315,14 +315,8 @@ export class ChoiceRipple {
       timestamp: Date.now()
     });
 
-    // Add delayed consequences (simulation)
-    setTimeout(() => {
-      this.consequences.push({
-        type: 'delayed',
-        effect: `Your choice has affected NPC behavior`,
-        timestamp: Date.now()
-      });
-    }, 100); // In real game, this would be much longer
+    // Note: In a production game, delayed consequences would be handled
+    // by a background job system or event queue, not setTimeout
 
     return ripple;
   }
