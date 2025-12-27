@@ -3,7 +3,7 @@
  * Enemies don't damage on collision - they have telegraphed attacks
  */
 
-export class EnemySystem {
+class EnemySystem {
   constructor(scene, intentTracker) {
     this.scene = scene;
     this.intentTracker = intentTracker;

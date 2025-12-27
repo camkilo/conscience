@@ -3,7 +3,7 @@
  * Map elements that react to player intent (platforms, spikes, etc.)
  */
 
-export class WorldReactions {
+class WorldReactions {
   constructor(scene, intentTracker) {
     this.scene = scene;
     this.intentTracker = intentTracker;

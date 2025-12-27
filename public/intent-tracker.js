@@ -3,7 +3,7 @@
  * Tracks player behavior patterns and derives intent scores
  */
 
-export class IntentTracker {
+class IntentTracker {
   constructor() {
     // Frame-by-frame tracking data
     this.frameData = [];

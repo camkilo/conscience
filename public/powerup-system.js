@@ -3,7 +3,7 @@
  * Every power-up has immediate benefits and long-term costs
  */
 
-export class PowerUpSystem {
+class PowerUpSystem {
   constructor(scene, intentTracker) {
     this.scene = scene;
     this.intentTracker = intentTracker;

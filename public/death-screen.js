@@ -3,7 +3,7 @@
  * Shows player intent graph and generates one-sentence judgment
  */
 
-export class DeathScreen {
+class DeathScreen {
   constructor(intentTracker) {
     this.intentTracker = intentTracker;
   }

@@ -3,7 +3,7 @@
  * Creates interconnected behavior zones across multiple height layers
  */
 
-export class VerticalMapGenerator {
+class VerticalMapGenerator {
   constructor(scene) {
     this.scene = scene;
     this.zones = [];
