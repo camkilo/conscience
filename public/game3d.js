@@ -1565,9 +1565,9 @@ class Game3D {
     if (this.keys['a']) forceVec.x -= moveForce;
     if (this.keys['d']) forceVec.x += moveForce;
     
-    // Apply movement force
+    // Apply movement impulse
     if (Math.sqrt(forceVec.x * forceVec.x + forceVec.z * forceVec.z) > 0) {
-      this.playerBody.applyImpulse(forceVec, true);
+      this.playerBody.applyImpulse(forceVec, true); // true = wake up the body
       this.player.userData.isMoving = true;
     } else {
       this.player.userData.isMoving = false;
@@ -1578,7 +1578,7 @@ class Game3D {
     const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
     if (horizontalSpeed > this.physics.maxSpeed) {
       const scale = this.physics.maxSpeed / horizontalSpeed;
-      this.playerBody.setLinvel({ x: vel.x * scale, y: vel.y, z: vel.z * scale }, true);
+      this.playerBody.setLinvel({ x: vel.x * scale, y: vel.y, z: vel.z * scale }, true); // true = wake up the body
     }
     
     // Sync Three.js object with physics body

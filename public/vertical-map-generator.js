@@ -179,25 +179,39 @@ class VerticalMapGenerator {
     const RAPIER = window.RAPIER;
     if (!this.physicsWorld || !RAPIER) return;
     
-    // Create rigid body descriptor (static, mass = 0)
-    const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
-      .setTranslation(x, y, z);
-    
-    if (rotation) {
-      rigidBodyDesc.setRotation(rotation);
+    try {
+      // Create rigid body descriptor (static, mass = 0)
+      const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
+        .setTranslation(x, y, z);
+      
+      if (rotation) {
+        rigidBodyDesc.setRotation(rotation);
+      }
+      
+      const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
+      if (!rigidBody) {
+        console.warn('Failed to create rigid body for box collider');
+        return;
+      }
+      
+      // Create box collider
+      const colliderDesc = RAPIER.ColliderDesc.cuboid(halfExtentX, halfExtentY, halfExtentZ)
+        .setFriction(0.4)
+        .setRestitution(0.1);
+      
+      const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
+      if (!collider) {
+        console.warn('Failed to create box collider');
+        this.physicsWorld.removeRigidBody(rigidBody);
+        return;
+      }
+      
+      this.colliders.push({ body: rigidBody, collider });
+      return { body: rigidBody, collider };
+    } catch (error) {
+      console.error('Error creating box collider:', error);
+      return;
     }
-    
-    const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
-    
-    // Create box collider
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(halfExtentX, halfExtentY, halfExtentZ)
-      .setFriction(0.4)
-      .setRestitution(0.1);
-    
-    const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
-    this.colliders.push({ body: rigidBody, collider });
-    
-    return { body: rigidBody, collider };
   }
   
   /**
@@ -340,21 +354,35 @@ class VerticalMapGenerator {
     const RAPIER = window.RAPIER;
     if (!this.physicsWorld || !RAPIER) return;
     
-    // Create rigid body descriptor (static, mass = 0)
-    const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
-      .setTranslation(x, y, z);
-    
-    const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
-    
-    // Create cylinder collider
-    const colliderDesc = RAPIER.ColliderDesc.cylinder(halfHeight, radius)
-      .setFriction(0.4)
-      .setRestitution(0.1);
-    
-    const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
-    this.colliders.push({ body: rigidBody, collider });
-    
-    return { body: rigidBody, collider };
+    try {
+      // Create rigid body descriptor (static, mass = 0)
+      const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed()
+        .setTranslation(x, y, z);
+      
+      const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
+      if (!rigidBody) {
+        console.warn('Failed to create rigid body for cylinder collider');
+        return;
+      }
+      
+      // Create cylinder collider
+      const colliderDesc = RAPIER.ColliderDesc.cylinder(halfHeight, radius)
+        .setFriction(0.4)
+        .setRestitution(0.1);
+      
+      const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
+      if (!collider) {
+        console.warn('Failed to create cylinder collider');
+        this.physicsWorld.removeRigidBody(rigidBody);
+        return;
+      }
+      
+      this.colliders.push({ body: rigidBody, collider });
+      return { body: rigidBody, collider };
+    } catch (error) {
+      console.error('Error creating cylinder collider:', error);
+      return;
+    }
   }
   
   /**
