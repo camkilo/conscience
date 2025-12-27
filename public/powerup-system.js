@@ -198,7 +198,7 @@ class PowerUpSystem {
         if (immediate.speedMultiplier) {
           effects.speedMultiplier *= immediate.speedMultiplier;
         }
-      } else if (powerUp.costStartTime && now < powerUp.costEndTime) {
+      } else if (powerUp.costStartTime && powerUp.costEndTime && now < powerUp.costEndTime) {
         // Apply psychological costs
         const cost = powerUp.definition.psychologicalCost;
         if (cost.enemyPredictionBonus) {

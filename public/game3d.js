@@ -51,6 +51,11 @@ class Game3D {
     this.gltfLoader = null;
     this.meshyCharacter = null;
     
+    // Configuration
+    this.config = {
+      meshyCharacterPath: '/Meshy_AI_Character_output.glb'
+    };
+    
     // Enemy tier configuration (kept for compatibility but will use new EnemySystem)
     this.enemyTypes = {
       swarm: {
@@ -509,7 +514,7 @@ class Game3D {
       const loader = new THREE.GLTFLoader();
       const gltf = await new Promise((resolve, reject) => {
         loader.load(
-          '/Meshy_AI_Character_output.glb',
+          this.config.meshyCharacterPath,
           resolve,
           (progress) => {
             console.log(`Loading Meshy character: ${(progress.loaded / progress.total * 100).toFixed(0)}%`);

@@ -122,7 +122,9 @@ class EnemySystem {
       patrolTarget: this.generatePatrolTarget(position),
       observedActions: [], // For Punishers
       lastObservationTime: 0,
-      attackIndicator: attackIndicator
+      attackIndicator: attackIndicator,
+      baseSpeed: enemyDef.speed, // Store base speed for Punisher calculations
+      patternDetected: false
     };
     
     this.scene.add(enemy);
@@ -357,10 +359,13 @@ class EnemySystem {
           // Pattern detected! Increase aggression
           userData.patternDetected = true;
           userData.attackCooldown = 1; // Attack more frequently
-          userData.definition.speed = userData.definition.speed * 1.3;
+          // Use base speed to avoid exponential increases
+          userData.definition.speed = userData.baseSpeed * 1.3;
         } else {
           userData.patternDetected = false;
           userData.attackCooldown = 2;
+          // Reset to base speed
+          userData.definition.speed = userData.baseSpeed;
         }
       }
     }

@@ -27,6 +27,7 @@ class IntentTracker {
     // Path tracking for repeated usage
     this.pathHeatmap = new Map(); // Grid-based heatmap
     this.gridSize = 5; // 5x5 meter grid cells
+    this.maxHeatmapCount = 0; // Cache max count for efficiency
     
     // Threat tracking
     this.threats = [];
@@ -132,7 +133,13 @@ class IntentTracker {
     const key = `${gridX},${gridZ}`;
     
     const count = this.pathHeatmap.get(key) || 0;
-    this.pathHeatmap.set(key, count + 1);
+    const newCount = count + 1;
+    this.pathHeatmap.set(key, newCount);
+    
+    // Update cached max count
+    if (newCount > this.maxHeatmapCount) {
+      this.maxHeatmapCount = newCount;
+    }
   }
   
   /**
@@ -144,7 +151,7 @@ class IntentTracker {
     const key = `${gridX},${gridZ}`;
     
     const count = this.pathHeatmap.get(key) || 0;
-    const maxCount = Math.max(...Array.from(this.pathHeatmap.values()), 1);
+    const maxCount = Math.max(this.maxHeatmapCount, 1);
     
     return count / maxCount; // Returns 0-1, where 1 is most repeated
   }

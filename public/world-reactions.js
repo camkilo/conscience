@@ -158,7 +158,8 @@ class WorldReactions {
       evaluationInterval: 0.3,
       damage: 15,
       damageInterval: 0.5,
-      lastDamageTime: 0
+      lastDamageTime: 0,
+      retractTimeoutId: null // Store timeout ID for cleanup
     };
     
     this.scene.add(spike);
@@ -204,11 +205,12 @@ class WorldReactions {
         }
         
         // Auto-retract after being extended
-        if (spike.userData.state === 'extended') {
-          setTimeout(() => {
+        if (spike.userData.state === 'extended' && !spike.userData.retractTimeoutId) {
+          spike.userData.retractTimeoutId = setTimeout(() => {
             if (spike.userData.state === 'extended') {
               spike.userData.state = 'retracting';
             }
+            spike.userData.retractTimeoutId = null;
           }, 2000);
         }
       }
@@ -315,7 +317,13 @@ class WorldReactions {
    */
   dispose() {
     this.platforms.forEach(p => this.scene.remove(p));
-    this.spikes.forEach(s => this.scene.remove(s));
+    this.spikes.forEach(s => {
+      // Clear any pending timeouts
+      if (s.userData.retractTimeoutId) {
+        clearTimeout(s.userData.retractTimeoutId);
+      }
+      this.scene.remove(s);
+    });
     this.platforms = [];
     this.spikes = [];
   }

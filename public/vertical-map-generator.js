@@ -473,7 +473,7 @@ class VerticalMapGenerator {
       } else {
         // Visual warning before collapse
         const warningIntensity = (now - userData.lastTriggerTime) / userData.triggerDelay;
-        platform.material.emissive = { r: warningIntensity, g: 0, b: 0 };
+        platform.material.emissive.setRGB(warningIntensity, 0, 0);
       }
     } else {
       // Reset trigger if player leaves
