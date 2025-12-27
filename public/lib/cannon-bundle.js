@@ -3,7 +3,7 @@
  * This file loads Cannon-es as an ES module and attaches it to window.CANNON
  */
 
-import * as CANNON from '../node_modules/cannon-es/dist/cannon-es.js';
+import * as CANNON from '/cannon-es/cannon-es.js';
 
 // Expose CANNON to global scope
 window.CANNON = CANNON;

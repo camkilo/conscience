@@ -3,7 +3,7 @@
  * This file loads the GLTFLoader as an ES module and attaches it to the global THREE
  */
 
-import { GLTFLoader } from '../node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from '/three-jsm/loaders/GLTFLoader.js';
 
 // Expose GLTFLoader to global THREE object
 if (window.THREE) {
