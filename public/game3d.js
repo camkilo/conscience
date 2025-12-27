@@ -320,10 +320,61 @@ class Game3D {
    */
   async loadMeshyCharacter() {
     try {
+      if (typeof THREE.GLTFLoader === 'undefined') {
+        console.log('GLTFLoader not available, using default geometry');
+        return;
+      }
+      
       const loader = new THREE.GLTFLoader();
-      // For now, we'll keep the simple geometry but prepare for model loading
-      // The GLTFLoader needs to be loaded as a separate script
-      console.log('Meshy character loading prepared');
+      loader.load(
+        '/Meshy_AI_Character_output.glb',
+        (gltf) => {
+          // Remove the default geometry
+          const oldGeometry = this.player.geometry;
+          const oldMaterial = this.player.material;
+          
+          // Add the loaded model as a child
+          const model = gltf.scene;
+          model.scale.set(0.5, 0.5, 0.5);
+          model.position.y = -1;
+          
+          // Enable shadows on all meshes
+          model.traverse((node) => {
+            if (node.isMesh) {
+              node.castShadow = true;
+              node.receiveShadow = true;
+            }
+          });
+          
+          this.player.add(model);
+          this.player.userData.model = model;
+          this.player.userData.animations = gltf.animations;
+          
+          // Setup animation mixer if animations exist
+          if (gltf.animations && gltf.animations.length > 0) {
+            this.player.userData.mixer = new THREE.AnimationMixer(model);
+            this.player.userData.actions = {};
+            
+            gltf.animations.forEach((clip) => {
+              const action = this.player.userData.mixer.clipAction(clip);
+              this.player.userData.actions[clip.name] = action;
+            });
+            
+            // Play idle animation if available
+            if (this.player.userData.actions['Idle']) {
+              this.player.userData.actions['Idle'].play();
+            }
+          }
+          
+          console.log('Meshy character loaded successfully');
+        },
+        (progress) => {
+          console.log('Loading model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+        },
+        (error) => {
+          console.log('Error loading Meshy character:', error);
+        }
+      );
     } catch (error) {
       console.log('Using default player geometry:', error);
     }
@@ -998,7 +1049,7 @@ class Game3D {
       } else {
         // On-screen health bar for nearby enemies
         const healthBar = document.createElement('div');
-        const healthPercent = (enemy.userData.health / 100) * 100;
+        const healthPercent = (enemy.userData.health / enemy.userData.maxHealth) * 100;
         
         healthBar.style.cssText = `
           position: absolute;
@@ -1163,6 +1214,30 @@ class Game3D {
         currentVel.z
       );
       this.player.rotation.y = this.player.userData.rotation;
+    }
+    
+    // Update animation mixer if available
+    if (this.player.userData.mixer) {
+      this.player.userData.mixer.update(delta);
+      
+      // Switch between animations based on movement
+      if (this.player.userData.actions) {
+        if (this.player.userData.isMoving) {
+          if (this.player.userData.actions['Walk']) {
+            this.player.userData.actions['Walk'].play();
+            if (this.player.userData.actions['Idle']) {
+              this.player.userData.actions['Idle'].stop();
+            }
+          }
+        } else {
+          if (this.player.userData.actions['Idle']) {
+            this.player.userData.actions['Idle'].play();
+            if (this.player.userData.actions['Walk']) {
+              this.player.userData.actions['Walk'].stop();
+            }
+          }
+        }
+      }
     }
   }
   
