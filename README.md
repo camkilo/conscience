@@ -5,13 +5,16 @@ The game is alive, and it knows what you want to do before you do it — but it 
 ## 🎮 Game Modes
 
 ### 🌟 3D Game Mode (New!)
-Experience the game in full 3D with immersive WebGL rendering:
+Experience the game in full 3D with immersive WebGL rendering and realistic physics:
 - **Full 3D Environment**: Navigate a living 3D world with real-time rendering
+- **Physics-Based Movement**: Realistic force-based character movement with Cannon.js
+- **Dynamic Rigid Bodies**: Player uses capsule collider, environment has static collision
 - **WASD + Mouse Controls**: Intuitive first-person-style controls
 - **Dynamic Combat**: Use abilities with visual effects and cooldowns
 - **Enemy AI**: Enemies that track and pursue you in real-time
 - **Immersive HUD**: Health bars, ability cooldowns, score tracking
 - **Visual Effects**: Particle systems, motion blur, camera shake
+- **GLB Model Support**: Load and display 3D models from /public/assets
 
 ### 📊 Classic Mode
 Original 2D interface with decision-based gameplay:
@@ -227,6 +230,8 @@ Extend the `choices` array in `generateMoralChoice` method.
 - **Backend**: Node.js with Express
 - **Frontend**: Vanilla JavaScript with modern CSS
 - **3D Engine**: Three.js (WebGL)
+- **Physics Engine**: Cannon-es (realistic physics simulation)
+- **Model Loading**: GLTFLoader for 3D model assets
 - **Architecture**: RESTful API with session management
 - **Deployment**: Vercel & Render compatible
 
@@ -234,14 +239,35 @@ Extend the `choices` array in `generateMoralChoice` method.
 
 ```
 /public
-  ├── index.html      # Main landing page with mode selection
-  ├── game.html       # 3D game page
-  └── game3d.js       # Three.js 3D game engine
+  ├── index.html              # Main landing page with mode selection
+  ├── game.html               # 3D game page
+  ├── game3d.js               # Three.js 3D game engine with physics
+  ├── /assets                 # 3D models (GLB/GLTF files)
+  └── /lib                    # Vendor libraries (GLTFLoader, Cannon.js)
 /
-  ├── game-engine.js  # Backend game logic (AI, world, choices)
-  ├── server.js       # Express server
-  └── package.json    # Dependencies (Express, Three.js)
+  ├── game-engine.js          # Backend game logic (AI, world, choices)
+  ├── server.js               # Express server
+  └── package.json            # Dependencies (Express, Three.js, Cannon-es)
 ```
+
+## 🎮 Physics System
+
+The 3D game mode features a full physics simulation:
+
+- **Player**: Dynamic rigid body with capsule collider
+  - Mass: 1kg (responds to forces)
+  - Movement: Force-based (not position teleportation)
+  - Collider: Capsule shape (cylinder + 2 spheres)
+  
+- **Environment**: Static rigid bodies
+  - Ground: Infinite plane collider
+  - Ramps: Box colliders with proper friction
+  - All static objects added to physics world
+
+- **Physics World**: Cannon.js integration
+  - Gravity: -20 m/s²
+  - 60Hz simulation rate
+  - Automatic collision detection and response
 
 ## 📝 License
 
