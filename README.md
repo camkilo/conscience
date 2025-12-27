@@ -2,7 +2,24 @@
 
 The game is alive, and it knows what you want to do before you do it — but it doesn't follow you blindly. It manipulates the world, enemies, and even the story to challenge your moral and strategic decisions in real time.
 
-## 🎮 Features
+## 🎮 Game Modes
+
+### 🌟 3D Game Mode (New!)
+Experience the game in full 3D with immersive WebGL rendering:
+- **Full 3D Environment**: Navigate a living 3D world with real-time rendering
+- **WASD + Mouse Controls**: Intuitive first-person-style controls
+- **Dynamic Combat**: Use abilities with visual effects and cooldowns
+- **Enemy AI**: Enemies that track and pursue you in real-time
+- **Immersive HUD**: Health bars, ability cooldowns, score tracking
+- **Visual Effects**: Particle systems, motion blur, camera shake
+
+### 📊 Classic Mode
+Original 2D interface with decision-based gameplay:
+- Profile visualization and tracking
+- Text-based encounters and choices
+- Moral dilemma system
+
+## 🎯 Features
 
 ### Predictive World AI
 - **Player Behavior Analysis**: The game observes your playstyle in real-time
@@ -36,7 +53,19 @@ npm install
 npm start
 
 # Open your browser to http://localhost:3000
+# Click "Play 3D Game ⚡" for the immersive 3D experience
+# Or click "Begin Your Journey (2D)" for the classic mode
 ```
+
+### 🎮 3D Game Controls
+
+- **WASD**: Move player
+- **Mouse**: Control camera angle
+- **1**: Attack ability
+- **2**: Defend ability
+- **3**: Special ability
+- **Space**: Dash
+- **ESC**: Pause menu
 
 ## 🌐 Deployment
 
@@ -197,8 +226,22 @@ Extend the `choices` array in `generateMoralChoice` method.
 
 - **Backend**: Node.js with Express
 - **Frontend**: Vanilla JavaScript with modern CSS
+- **3D Engine**: Three.js (WebGL)
 - **Architecture**: RESTful API with session management
 - **Deployment**: Vercel & Render compatible
+
+## 📁 Project Structure
+
+```
+/public
+  ├── index.html      # Main landing page with mode selection
+  ├── game.html       # 3D game page
+  └── game3d.js       # Three.js 3D game engine
+/
+  ├── game-engine.js  # Backend game logic (AI, world, choices)
+  ├── server.js       # Express server
+  └── package.json    # Dependencies (Express, Three.js)
+```
 
 ## 📝 License
 
