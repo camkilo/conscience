@@ -6,3 +6,7 @@ npm-debug.log
 dist/
 build/
 *.log
+
+# Copied vendor libraries (built from node_modules)
+public/lib/GLTFLoader.js
+public/lib/cannon-es.js
