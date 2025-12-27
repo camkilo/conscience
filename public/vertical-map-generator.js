@@ -166,6 +166,13 @@ class VerticalMapGenerator {
   
   /**
    * Create a box collider for a static object
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {number} z - Z position
+   * @param {number} halfExtentX - Half width (X)
+   * @param {number} halfExtentY - Half height (Y)
+   * @param {number} halfExtentZ - Half depth (Z)
+   * @param {Object|null} rotation - Optional rotation as quaternion {x, y, z, w}
    */
   createBoxCollider(x, y, z, halfExtentX, halfExtentY, halfExtentZ, rotation = null) {
     const RAPIER = window.RAPIER;
@@ -321,6 +328,11 @@ class VerticalMapGenerator {
   
   /**
    * Create a cylinder collider for a static object
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {number} z - Z position
+   * @param {number} radius - Cylinder radius
+   * @param {number} halfHeight - Half height of cylinder
    */
   createCylinderCollider(x, y, z, radius, halfHeight) {
     const RAPIER = window.RAPIER;

@@ -1550,7 +1550,8 @@ class Game3D {
   }
   
   /**
-   * Update player using physics (force-based)
+   * Update player using physics (impulse-based)
+   * Note: Using impulses for responsive, arcade-style movement
    */
   updatePlayerPhysics(delta) {
     if (!this.playerBody) return;
@@ -1558,7 +1559,7 @@ class Game3D {
     const moveForce = this.physics.moveForce;
     const forceVec = { x: 0, y: 0, z: 0 };
     
-    // WASD movement - apply forces
+    // WASD movement - apply impulses for responsive control
     if (this.keys['w']) forceVec.z -= moveForce;
     if (this.keys['s']) forceVec.z += moveForce;
     if (this.keys['a']) forceVec.x -= moveForce;
