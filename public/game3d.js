@@ -1541,7 +1541,7 @@ class Game3D {
     
     // Rotate player based on movement
     if (this.playerBody && this.config.usePhysics) {
-      const vel = this.playerBody.velocity;
+      const vel = this.playerBody.linvel();
       if (Math.sqrt(vel.x * vel.x + vel.z * vel.z) > 0.1) {
         this.player.userData.rotation = Math.atan2(vel.x, vel.z);
         this.player.rotation.y = this.player.userData.rotation;
