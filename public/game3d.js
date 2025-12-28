@@ -890,12 +890,17 @@ class Game3D {
         { x: -10, y: 7, z: 0, scaleX: 2.0, scaleY: 0.05, scaleZ: 0.4, color: 0x7a8f7a }
       ];
       
+      // Constants for base floor model dimensions
+      const BASE_FLOOR_WIDTH = 100;  // Base floor model is 100 units wide
+      const BASE_FLOOR_HEIGHT = 0.5; // Base floor model is 0.5 units tall
+      
       // Create each platform
       platformConfigs.forEach((config, index) => {
         const platform = floorGltf.scene.clone();
         platform.position.set(config.x, config.y, config.z);
         platform.scale.set(config.scaleX, config.scaleY, config.scaleZ);
         
+        // Apply visual properties to all meshes
         platform.traverse((node) => {
           if (node.isMesh) {
             node.receiveShadow = true;
@@ -906,32 +911,33 @@ class Game3D {
               node.material = node.material.clone();
               node.material.color.setHex(config.color);
             }
-            
-            // Create physics collider for platform
-            if (this.world) {
-              try {
-                // Create box collider for platform (more efficient than mesh collider)
-                const halfExtents = new CANNON.Vec3(
-                  config.scaleX * 50, // Assuming base floor is 100 units wide
-                  config.scaleY * 0.25,
-                  config.scaleZ * 50
-                );
-                const boxShape = new CANNON.Box(halfExtents);
-                const platformBody = new CANNON.Body({
-                  mass: 0, // Static
-                  shape: boxShape,
-                  position: new CANNON.Vec3(config.x, config.y, config.z),
-                  material: new CANNON.Material({ friction: 0.4, restitution: 0.0 })
-                });
-                
-                this.world.addBody(platformBody);
-                this.physicsBodies.push(platformBody);
-              } catch (colliderError) {
-                console.warn(`Could not create collider for platform ${index}:`, colliderError.message);
-              }
-            }
           }
         });
+        
+        // Create single physics collider for platform (outside mesh traverse to avoid duplicates)
+        if (this.world) {
+          try {
+            // Create box collider for platform (more efficient than mesh collider)
+            // Calculate half extents based on base floor dimensions and scale
+            const halfExtents = new CANNON.Vec3(
+              config.scaleX * (BASE_FLOOR_WIDTH / 2),
+              config.scaleY * (BASE_FLOOR_HEIGHT / 2),
+              config.scaleZ * (BASE_FLOOR_WIDTH / 2)
+            );
+            const boxShape = new CANNON.Box(halfExtents);
+            const platformBody = new CANNON.Body({
+              mass: 0, // Static
+              shape: boxShape,
+              position: new CANNON.Vec3(config.x, config.y, config.z),
+              material: new CANNON.Material({ friction: 0.4, restitution: 0.0 })
+            });
+            
+            this.world.addBody(platformBody);
+            this.physicsBodies.push(platformBody);
+          } catch (colliderError) {
+            console.warn(`Could not create collider for platform ${index}:`, colliderError.message);
+          }
+        }
         
         this.scene.add(platform);
       });
