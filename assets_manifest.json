@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
-    "ramp": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ",
-    "wall": "https://drive.google.com/uc?export=download&id=WALL_ID",
-    "platform": "https://drive.google.com/uc?export=download&id=PLATFORM_ID"
+    "floor": "/assets/floor.glb",
+    "ramp": "/assets/ramp.glb",
+    "wall": "/assets/ramp.glb",
+    "platform": "/assets/floor.glb"
   },
   "characters": {
     "player": {
-      "url": "https://drive.google.com/uc?export=download&id=1KEnk4TVTiUuhxq74s4GQO1VqCOIrWQka",
+      "url": "/assets/player.glb",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "https://drive.google.com/uc?export=download&id=1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY",
+      "url": "/assets/enemy.glb",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }

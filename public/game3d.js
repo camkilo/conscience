@@ -431,7 +431,11 @@ class Game3D {
             
             // Create mesh collider for floor
             if (this.world) {
-              this.createMeshCollider(node, 0); // mass = 0 for static
+              try {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              } catch (colliderError) {
+                console.warn('⚠️ Could not create collider for floor mesh:', colliderError.message);
+              }
             }
           }
         });
@@ -440,6 +444,7 @@ class Game3D {
         this.environmentModels = { floor: floorModel };
         console.log('✓ Floor model loaded and added with colliders');
       } catch (error) {
+        console.error('Floor loading error:', error);
         throw new Error('❌ CRITICAL: Failed to load floor model - game cannot start');
       }
     } else {
@@ -473,7 +478,11 @@ class Game3D {
               
               // Create mesh collider for ramp
               if (this.world) {
-                this.createMeshCollider(node, 0); // mass = 0 for static
+                try {
+                  this.createMeshCollider(node, 0); // mass = 0 for static
+                } catch (colliderError) {
+                  console.warn('⚠️ Could not create collider for ramp mesh:', colliderError.message);
+                }
               }
             }
           });
@@ -611,8 +620,13 @@ class Game3D {
     });
     
     // Apply mesh world transform to body
-    mesh.getWorldPosition(body.position);
-    mesh.getWorldQuaternion(body.quaternion);
+    const worldPos = new THREE.Vector3();
+    const worldQuat = new THREE.Quaternion();
+    mesh.getWorldPosition(worldPos);
+    mesh.getWorldQuaternion(worldQuat);
+    
+    body.position.set(worldPos.x, worldPos.y, worldPos.z);
+    body.quaternion.set(worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w);
     
     this.world.addBody(body);
     this.physicsBodies.push(body);
@@ -871,7 +885,16 @@ class Game3D {
         state: 'idle',
         attackCooldown: 0,
         attackRange: 4,
-        detectionRange: 25
+        detectionRange: 25,
+        // Add definition property for EnemySystem compatibility
+        definition: {
+          detectionRange: 25,
+          attackRange: 4,
+          speed: 3,
+          attackDamage: 10,
+          attackWindup: 1.0,
+          attackDuration: 0.5
+        }
       };
       
       // Create capsule collider for enemy
