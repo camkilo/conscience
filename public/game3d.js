@@ -301,8 +301,8 @@ class Game3D {
     
     // Create scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a1a);
-    this.scene.fog = new THREE.Fog(0x0a0a1a, 20, 100);
+    this.scene.background = new THREE.Color(0x202040); // Lighter background for visibility
+    this.scene.fog = new THREE.Fog(0x202040, 50, 150); // Adjusted fog
     
     // Create camera
     this.camera = new THREE.PerspectiveCamera(
@@ -382,12 +382,12 @@ class Game3D {
    * Create lighting
    */
   createLights() {
-    // Ambient light
-    const ambient = new THREE.AmbientLight(0x404060, 0.5);
+    // Ambient light - increased for better visibility
+    const ambient = new THREE.AmbientLight(0x808080, 1.5);
     this.scene.add(ambient);
     
     // Directional light (sun)
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
     sun.shadow.camera.left = -50;
@@ -398,9 +398,11 @@ class Game3D {
     sun.shadow.mapSize.height = 2048;
     this.scene.add(sun);
     
-    // Hemisphere light
-    const hemi = new THREE.HemisphereLight(0x4488ff, 0x442200, 0.3);
+    // Hemisphere light - increased for better visibility
+    const hemi = new THREE.HemisphereLight(0x4488ff, 0x442200, 0.6);
     this.scene.add(hemi);
+    
+    console.log('✓ Lighting configured for asset visibility');
   }
   
   /**
@@ -424,10 +426,13 @@ class Game3D {
         const floorModel = floorGltf.scene;
         
         // Configure floor model
+        floorModel.position.set(0, -5, 0); // Position below player
+        floorModel.scale.set(2, 0.1, 2); // Flatten it to make it ground-like
+        
         floorModel.traverse((node) => {
           if (node.isMesh) {
             node.receiveShadow = true;
-            node.castShadow = true;
+            node.castShadow = false; // Floor doesn't cast shadow
             
             // Create mesh collider for floor
             if (this.world) {
