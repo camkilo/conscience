@@ -2412,6 +2412,8 @@ class Game3D {
    * Create enemy projectile
    */
   createEnemyProjectile(enemy) {
+    if (!this.player || !this.player.position) return; // Safety check for player
+    
     const geometry = new THREE.SphereGeometry(0.2);
     const material = new THREE.MeshBasicMaterial({ color: 0xff22ff });
     const projectile = new THREE.Mesh(geometry, material);
