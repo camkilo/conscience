@@ -400,20 +400,34 @@ class EnemySystem {
     const userData = enemy.userData;
     const def = userData.definition;
     
+    // Safety check: Only update visuals if attackIndicator exists
+    if (!userData.attackIndicator || !userData.attackIndicator.material) {
+      return; // Skip visual updates for enemies without attack indicators
+    }
+    
     // Update attack indicator opacity during windup
     if (userData.attackState === 'windup') {
       const windupProgress = (now - userData.attackWindupStartTime) / def.attackWindup;
       userData.attackIndicator.material.opacity = windupProgress * 0.7;
       
-      // Flash enemy color
-      enemy.material.emissiveIntensity = 0.5 + windupProgress * 0.5;
+      // Flash enemy color (only if enemy has material)
+      if (enemy.material) {
+        enemy.material.emissiveIntensity = 0.5 + windupProgress * 0.5;
+      }
     } else if (userData.attackState === 'attacking') {
       userData.attackIndicator.material.opacity = 0.9;
-      enemy.material.emissiveIntensity = 1.0;
+      if (enemy.material) {
+        enemy.material.emissiveIntensity = 1.0;
+      }
     } else {
       userData.attackIndicator.material.opacity = 0;
-      enemy.material.emissiveIntensity = 0.2;
+      if (enemy.material) {
+        enemy.material.emissiveIntensity = 0.2;
+      }
     }
+    
+    // Safety check for material before updating emissive
+    if (!enemy.material) return;
     
     // Special visuals for Observer
     if (userData.enemyType === 'OBSERVER' && userData.isObserving) {
