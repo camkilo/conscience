@@ -1987,6 +1987,9 @@ class Game3D {
     
     // Attack enemies
     this.enemies.forEach(enemy => {
+      // Safety check: ensure enemy has position
+      if (!enemy || !enemy.position) return;
+      
       const distance = this.player.position.distanceTo(enemy.position);
       if (distance < attackRange) {
         enemy.userData.health -= 30;
@@ -2002,6 +2005,9 @@ class Game3D {
     // Break nearby objects
     this.breakableObjects.forEach(crate => {
       if (crate.userData.broken) return;
+      // Safety check: ensure crate has position
+      if (!crate || !crate.position) return;
+      
       const distance = this.player.position.distanceTo(crate.position);
       if (distance < attackRange) {
         crate.userData.health -= 30;
@@ -2286,6 +2292,9 @@ class Game3D {
     container.innerHTML = '';
     
     this.enemies.forEach(enemy => {
+      // Safety check: ensure enemy has position
+      if (!enemy || !enemy.position) return;
+      
       const screenPos = this.worldToScreen(enemy.position);
       const distance = this.player.position.distanceTo(enemy.position);
       
@@ -2597,6 +2606,12 @@ class Game3D {
     if (this.paused || !this.player || !this.player.position) return; // Safety check for player
     
     this.enemies.forEach(enemy => {
+      // Safety check: ensure enemy has position
+      if (!enemy || !enemy.position) {
+        console.warn('⚠️ Enemy without valid position detected, skipping');
+        return;
+      }
+      
       // Update animation mixer
       if (enemy.userData.mixer) {
         enemy.userData.mixer.update(delta);
@@ -2693,6 +2708,9 @@ class Game3D {
    * Enemy attack action - uses animation timing, NOT contact damage
    */
   enemyAttack(enemy) {
+    // Safety check: ensure enemy and player have valid positions
+    if (!enemy || !enemy.position || !this.player || !this.player.position) return;
+    
     // Play attack animation
     if (enemy.userData.animations && enemy.userData.animations['attack']) {
       const attackAnim = enemy.userData.animations['attack'];
@@ -2704,6 +2722,9 @@ class Game3D {
       
       // Schedule damage application
       setTimeout(() => {
+        // Check if player and enemy still exist and have positions
+        if (!this.player || !this.player.position || !enemy || !enemy.position) return;
+        
         // Check if player is still in range
         const distToPlayer = this.player.position.distanceTo(enemy.position);
         if (distToPlayer < enemy.userData.attackRange) {
@@ -2729,6 +2750,7 @@ class Game3D {
    */
   createEnemyProjectile(enemy) {
     if (!this.player || !this.player.position) return; // Safety check for player
+    if (!enemy || !enemy.position) return; // Safety check for enemy
     
     const geometry = new THREE.SphereGeometry(0.2);
     const material = new THREE.MeshBasicMaterial({ color: 0xff22ff });
@@ -2752,6 +2774,9 @@ class Game3D {
    * Create melee swipe effect
    */
   createMeleeSwipe(enemy) {
+    // Safety check: ensure enemy has position
+    if (!enemy || !enemy.position) return;
+    
     const geometry = new THREE.ConeGeometry(0.5, 1.5, 8);
     const material = new THREE.MeshBasicMaterial({ 
       color: 0xff4444,
