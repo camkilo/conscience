@@ -137,7 +137,11 @@ class EnemySystem {
    */
   updateEnemy(enemy, player, delta, powerUpEffects) {
     if (!enemy || !enemy.userData || enemy.userData.type !== 'enemy') return;
-    if (!player || !player.position || !player.userData || !player.userData.velocity) return; // Safety check for player
+    // Enhanced safety check - verify player position is valid Vector3
+    if (!player || !player.position || typeof player.position.x === 'undefined') return;
+    if (!player.userData || !player.userData.velocity) return;
+    // Verify enemy position is valid
+    if (!enemy.position || typeof enemy.position.x === 'undefined') return;
     
     const now = Date.now() / 1000;
     const userData = enemy.userData;
@@ -193,6 +197,11 @@ class EnemySystem {
     
     switch (userData.state) {
       case 'patrol':
+        // Initialize patrol target if not set
+        if (!userData.patrolTarget || typeof userData.patrolTarget.x === 'undefined') {
+          userData.patrolTarget = this.generatePatrolTarget(enemy.position);
+        }
+        
         direction.subVectors(userData.patrolTarget, enemy.position);
         direction.y = 0;
         
@@ -399,37 +408,76 @@ class EnemySystem {
     const userData = enemy.userData;
     const def = userData.definition;
     
-    // Update attack indicator opacity during windup
-    if (userData.attackState === 'windup') {
-      const windupProgress = (now - userData.attackWindupStartTime) / def.attackWindup;
-      userData.attackIndicator.material.opacity = windupProgress * 0.7;
+    // Helper function to safely update material properties
+    const updateMaterials = (object, updateFn) => {
+      if (!object) return;
       
-      // Flash enemy color
-      enemy.material.emissiveIntensity = 0.5 + windupProgress * 0.5;
-    } else if (userData.attackState === 'attacking') {
-      userData.attackIndicator.material.opacity = 0.9;
-      enemy.material.emissiveIntensity = 1.0;
-    } else {
-      userData.attackIndicator.material.opacity = 0;
-      enemy.material.emissiveIntensity = 0.2;
+      if (object.material) {
+        updateFn(object.material);
+      }
+      
+      if (object.children) {
+        object.children.forEach(child => updateMaterials(child, updateFn));
+      }
+    };
+    
+    // Update attack indicator opacity during windup
+    if (userData.attackIndicator && userData.attackIndicator.material) {
+      if (userData.attackState === 'windup') {
+        const windupProgress = (now - userData.attackWindupStartTime) / def.attackWindup;
+        userData.attackIndicator.material.opacity = windupProgress * 0.7;
+        
+        // Flash enemy color
+        updateMaterials(enemy, (mat) => {
+          if (mat.emissiveIntensity !== undefined) {
+            mat.emissiveIntensity = 0.5 + windupProgress * 0.5;
+          }
+        });
+      } else if (userData.attackState === 'attacking') {
+        userData.attackIndicator.material.opacity = 0.9;
+        updateMaterials(enemy, (mat) => {
+          if (mat.emissiveIntensity !== undefined) {
+            mat.emissiveIntensity = 1.0;
+          }
+        });
+      } else {
+        userData.attackIndicator.material.opacity = 0;
+        updateMaterials(enemy, (mat) => {
+          if (mat.emissiveIntensity !== undefined) {
+            mat.emissiveIntensity = 0.2;
+          }
+        });
+      }
     }
     
     // Special visuals for Observer
     if (userData.enemyType === 'OBSERVER' && userData.isObserving) {
-      enemy.material.emissive.setHex(0xffffaa);
-      enemy.material.emissiveIntensity = 0.6;
+      updateMaterials(enemy, (mat) => {
+        if (mat.emissive && mat.emissive.setHex) {
+          mat.emissive.setHex(0xffffaa);
+          mat.emissiveIntensity = 0.6;
+        }
+      });
     }
     
     // Special visuals for Punisher with pattern detected
     if (userData.enemyType === 'PUNISHER' && userData.patternDetected) {
-      enemy.material.emissive.setHex(0xff0000);
-      enemy.material.emissiveIntensity = 0.8;
+      updateMaterials(enemy, (mat) => {
+        if (mat.emissive && mat.emissive.setHex) {
+          mat.emissive.setHex(0xff0000);
+          mat.emissiveIntensity = 0.8;
+        }
+      });
     }
     
     // Special visuals for Distorter
     if (userData.enemyType === 'DISTORTER' && userData.causeDistortion) {
-      enemy.material.emissive.setHex(0xff00ff);
-      enemy.material.emissiveIntensity = 0.9;
+      updateMaterials(enemy, (mat) => {
+        if (mat.emissive && mat.emissive.setHex) {
+          mat.emissive.setHex(0xff00ff);
+          mat.emissiveIntensity = 0.9;
+        }
+      });
     }
   }
   

@@ -2302,9 +2302,15 @@ class Game3D {
    * Update enemies with animations
    */
   updateEnemies(delta) {
-    if (this.paused || !this.player || !this.player.position) return; // Safety check for player
+    // Safety checks
+    if (this.paused) return;
+    if (!this.player || !this.player.position) return;
+    // Ensure player position is a valid Vector3 with x, y, z properties
+    if (typeof this.player.position.x === 'undefined') return;
     
     this.enemies.forEach(enemy => {
+      // Additional safety check for enemy position
+      if (!enemy || !enemy.position || typeof enemy.position.x === 'undefined') return;
       // Update animation mixer
       if (enemy.userData.mixer) {
         enemy.userData.mixer.update(delta);
