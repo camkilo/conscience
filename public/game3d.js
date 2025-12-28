@@ -659,127 +659,39 @@ class Game3D {
   }
   
   /**
-   * Create movable platforms
+   * DISABLED: createMovablePlatforms - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load platform models from GLB assets instead
    */
   createMovablePlatforms() {
-    for (let i = 0; i < 3; i++) {
-      const geometry = new THREE.BoxGeometry(4, 0.5, 4);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x4488ff,
-        roughness: 0.6,
-        metalness: 0.4,
-        emissive: 0x2244aa,
-        emissiveIntensity: 0.2
-      });
-      const platform = new THREE.Mesh(geometry, material);
-      platform.position.set(
-        (Math.random() - 0.5) * 60,
-        2,
-        (Math.random() - 0.5) * 60
-      );
-      platform.castShadow = true;
-      platform.receiveShadow = true;
-      platform.userData = {
-        type: 'platform',
-        baseY: platform.position.y,
-        targetY: platform.position.y,
-        velocity: 0,
-        activated: false
-      };
-      this.scene.add(platform);
-      this.platforms.push(platform);
-    }
+    console.warn('⚠️ createMovablePlatforms disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create pressure plates
+   * DISABLED: createPressurePlates - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load pressure plate models from GLB assets instead
    */
   createPressurePlates() {
-    for (let i = 0; i < 5; i++) {
-      const geometry = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 16);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x888800,
-        roughness: 0.8,
-        metalness: 0.2
-      });
-      const plate = new THREE.Mesh(geometry, material);
-      plate.position.set(
-        (Math.random() - 0.5) * 70,
-        0.1,
-        (Math.random() - 0.5) * 70
-      );
-      plate.receiveShadow = true;
-      plate.userData = {
-        type: 'pressurePlate',
-        activated: false,
-        cooldown: 0,
-        effect: Math.random() > 0.5 ? 'spikes' : 'collapse'
-      };
-      this.scene.add(plate);
-      this.pressurePlates.push(plate);
-    }
+    console.warn('⚠️ createPressurePlates disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create breakable objects
+   * DISABLED: createBreakableObjects - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load breakable object models from GLB assets instead
    */
   createBreakableObjects() {
-    for (let i = 0; i < 8; i++) {
-      const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x886644,
-        roughness: 0.9,
-        metalness: 0.1
-      });
-      const crate = new THREE.Mesh(geometry, material);
-      crate.position.set(
-        (Math.random() - 0.5) * 70,
-        0.75,
-        (Math.random() - 0.5) * 70
-      );
-      crate.castShadow = true;
-      crate.receiveShadow = true;
-      crate.userData = {
-        type: 'breakable',
-        health: 50,
-        broken: false
-      };
-      this.scene.add(crate);
-      this.breakableObjects.push(crate);
-    }
+    console.warn('⚠️ createBreakableObjects disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create pickups
+   * DISABLED: createPickups - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load pickup models from GLB assets instead
    */
   createPickups() {
-    const pickupTypes = ['health', 'speed', 'power'];
-    for (let i = 0; i < 6; i++) {
-      const type = pickupTypes[Math.floor(Math.random() * pickupTypes.length)];
-      const geometry = new THREE.OctahedronGeometry(0.5);
-      const colors = { health: 0x00ff00, speed: 0x00ffff, power: 0xffaa00 };
-      const material = new THREE.MeshStandardMaterial({ 
-        color: colors[type],
-        emissive: colors[type],
-        emissiveIntensity: 0.5,
-        roughness: 0.3,
-        metalness: 0.7
-      });
-      const pickup = new THREE.Mesh(geometry, material);
-      pickup.position.set(
-        (Math.random() - 0.5) * 80,
-        1,
-        (Math.random() - 0.5) * 80
-      );
-      pickup.userData = {
-        type: 'pickup',
-        pickupType: type,
-        rotationSpeed: Math.random() + 1,
-        collected: false
-      };
-      this.scene.add(pickup);
-      this.pickups.push(pickup);
-    }
+    console.warn('⚠️ createPickups disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
@@ -1383,7 +1295,7 @@ class Game3D {
   }
   
   /**
-   * Create shield visual
+   * Create shield visual effect (transient VFX - acceptable)
    */
   createShield() {
     const geometry = new THREE.SphereGeometry(1.5, 32, 32);
@@ -1413,7 +1325,7 @@ class Game3D {
   }
   
   /**
-   * Create explosion effect
+   * Create explosion effect (transient VFX - acceptable)
    */
   createExplosion(position) {
     const particleCount = 30;
@@ -1438,7 +1350,7 @@ class Game3D {
   }
   
   /**
-   * Create hit effect
+   * Create hit effect (transient VFX - acceptable)
    */
   createHitEffect(position) {
     const geometry = new THREE.SphereGeometry(0.5, 16, 16);

@@ -1,0 +1,18 @@
+{
+  "environment": {
+    "floor": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
+    "ramp": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ",
+    "wall": "https://drive.google.com/uc?export=download&id=WALL_ID",
+    "platform": "https://drive.google.com/uc?export=download&id=PLATFORM_ID"
+  },
+  "characters": {
+    "player": {
+      "url": "https://drive.google.com/uc?export=download&id=1KEnk4TVTiUuhxq74s4GQO1VqCOIrWQka",
+      "animations": ["idle", "run", "jump", "attack"]
+    },
+    "enemy_basic": {
+      "url": "https://drive.google.com/uc?export=download&id=1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY",
+      "animations": ["idle", "walk", "attack", "death"]
+    }
+  }
+}
