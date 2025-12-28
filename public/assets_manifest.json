@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "/assets/floor.glb",
-    "ramp": "/assets/ramp.glb",
-    "wall": "/assets/ramp.glb",
-    "platform": "/assets/ramp.glb"
+    "floor": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
+    "ramp": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
+    "wall": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb",
+    "platform": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb"
   },
   "characters": {
     "player": {
-      "url": "/assets/player.glb",
+      "url": "https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "/assets/enemy.glb",
+      "url": "https://playconscience.com/Meshy_AI_biped%204/Meshy_AI_Character_output.glb",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }
