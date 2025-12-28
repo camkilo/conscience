@@ -191,45 +191,75 @@ class Game3D {
   
   /**
    * Load a GLB model from URL with proper error handling and logging
+   * Uses client-side binary fetch to ensure compatibility with external URLs
    */
   async loadGLBModel(url, modelName) {
     if (!this.gltfLoader) {
       throw new Error('❌ GLTFLoader not available - cannot load ' + modelName);
     }
     
-    return new Promise((resolve, reject) => {
-      console.log(`📦 Loading ${modelName} from: ${url}`);
-      if (this.diagnosticMessages) {
-        this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
+    // Ensure we're running client-side
+    if (typeof window === 'undefined') {
+      throw new Error('❌ GLB loading must run client-side');
+    }
+    
+    console.log(`📦 Loading ${modelName} from: ${url}`);
+    console.log(`   window exists: ${typeof window !== 'undefined'}`);
+    
+    if (this.diagnosticMessages) {
+      this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
+    }
+    
+    try {
+      // Fetch as binary (arrayBuffer) for proper GLB handling
+      const response = await fetch(url);
+      
+      console.log(`   response.ok: ${response.ok}`);
+      console.log(`   response.status: ${response.status}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      this.gltfLoader.load(
-        url,
-        (gltf) => {
-          console.log(`✓ ${modelName} loaded successfully`);
-          if (this.diagnosticMessages) {
-            this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
+      const buffer = await response.arrayBuffer();
+      console.log(`   byteLength: ${buffer.byteLength}`);
+      
+      if (buffer.byteLength === 0) {
+        throw new Error('Empty buffer received');
+      }
+      
+      // Parse the binary data using GLTFLoader
+      return new Promise((resolve, reject) => {
+        this.gltfLoader.parse(
+          buffer,
+          '', // path (not needed for binary data)
+          (gltf) => {
+            console.log(`✓ ${modelName} loaded successfully`);
+            if (this.diagnosticMessages) {
+              this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
+            }
+            resolve(gltf);
+          },
+          (error) => {
+            const errorMsg = `❌ FAILED TO PARSE ${modelName}: ${error.message}`;
+            console.error(errorMsg);
+            if (this.diagnosticMessages) {
+              this.addDiagnosticMessage(errorMsg, 'error');
+            }
+            reject(new Error(errorMsg));
           }
-          resolve(gltf);
-        },
-        (progress) => {
-          if (progress.total > 0) {
-            const percent = (progress.loaded / progress.total * 100).toFixed(0);
-            console.log(`Loading ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
-          }
-        },
-        (error) => {
-          const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
-          console.error(errorMsg);
-          if (this.diagnosticMessages) {
-            this.addDiagnosticMessage(errorMsg, 'error');
-          }
-          // Show critical error overlay
-          this.showCriticalError(errorMsg);
-          reject(new Error(errorMsg));
-        }
-      );
-    });
+        );
+      });
+    } catch (error) {
+      const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
+      console.error(errorMsg);
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(errorMsg, 'error');
+      }
+      // Show critical error overlay
+      this.showCriticalError(errorMsg);
+      throw new Error(errorMsg);
+    }
   }
   
   /**
@@ -522,7 +552,7 @@ class Game3D {
     
     // Initialize Vertical Map Generator
     if (window.VerticalMapGenerator) {
-      this.mapGenerator = new window.VerticalMapGenerator(this.scene);
+      this.mapGenerator = new window.VerticalMapGenerator(this.scene, this.assetsManifest, this.gltfLoader);
       this.addDiagnosticMessage('✓ Vertical Map Generator initialized', 'success');
     }
     
@@ -676,7 +706,7 @@ class Game3D {
   }
   
   /**
-   * Load additional environment assets (non-blocking)
+   * Load additional environment assets and generate map using GLB models
    */
   async loadAdditionalEnvironmentAssets() {
     if (!this.gltfLoader || !this.assetsManifest || !this.assetsManifest.environment) {
@@ -685,130 +715,50 @@ class Game3D {
     }
     
     const env = this.assetsManifest.environment;
+    this.environmentModels = this.environmentModels || {};
     
     // Load ramp model
     if (env.ramp) {
       try {
         this.addDiagnosticMessage(`Loading asset: ramp from ${env.ramp}`, 'info');
         const rampGltf = await this.loadGLBModel(env.ramp, 'Ramp');
-        
-        // Create multiple ramp instances for level design
-        for (let i = 0; i < 3; i++) {
-          const rampModel = rampGltf.scene.clone();
-          
-          // Position ramps to create elevation changes
-          const positions = [
-            { x: 20, y: 0, z: 20, rotY: 0 },
-            { x: -25, y: 0, z: -15, rotY: Math.PI / 4 },
-            { x: 0, y: 0, z: -30, rotY: Math.PI / 2 }
-          ];
-          
-          const pos = positions[i];
-          rampModel.position.set(pos.x, pos.y, pos.z);
-          rampModel.rotation.y = pos.rotY;
-          
-          rampModel.traverse((node) => {
-            if (node.isMesh) {
-              node.receiveShadow = true;
-              node.castShadow = true;
-              
-              // Create mesh collider for ramp
-              if (this.world) {
-                try {
-                  this.createMeshCollider(node, 0); // mass = 0 for static
-                } catch (colliderError) {
-                  this.addDiagnosticMessage(`⚠️ Could not create collider for ramp: ${colliderError.message}`, 'warning');
-                }
-              }
-            }
-          });
-          
-          this.scene.add(rampModel);
-        }
-        
+        this.environmentModels.ramp = rampGltf.scene;
         this.addDiagnosticMessage('✓ Asset loaded successfully: ramp', 'success');
       } catch (error) {
         this.addDiagnosticMessage(`⚠️ Failed to load ramp: ${error.message} (non-critical)`, 'warning');
       }
     }
     
-    // Load platform model if available
+    // Load platform model
     if (env.platform) {
       try {
         this.addDiagnosticMessage(`Loading asset: platform from ${env.platform}`, 'info');
         const platformGltf = await this.loadGLBModel(env.platform, 'Platform');
-        
-        // Create multiple platform instances
-        for (let i = 0; i < 4; i++) {
-          const platformModel = platformGltf.scene.clone();
-          
-          const angle = (i / 4) * Math.PI * 2;
-          const distance = 30;
-          platformModel.position.set(
-            Math.cos(angle) * distance,
-            5,
-            Math.sin(angle) * distance
-          );
-          
-          platformModel.traverse((node) => {
-            if (node.isMesh) {
-              node.receiveShadow = true;
-              node.castShadow = true;
-              
-              // Create mesh collider for platform
-              if (this.world) {
-                this.createMeshCollider(node, 0); // mass = 0 for static
-              }
-            }
-          });
-          
-          this.scene.add(platformModel);
-        }
-        
+        this.environmentModels.platform = platformGltf.scene;
         this.addDiagnosticMessage('✓ Asset loaded successfully: platform', 'success');
       } catch (error) {
         this.addDiagnosticMessage(`⚠️ Failed to load platform: ${error.message} (non-critical)`, 'warning');
       }
     }
     
-    // Load wall model if available
+    // Load wall model
     if (env.wall) {
       try {
         this.addDiagnosticMessage(`Loading asset: wall from ${env.wall}`, 'info');
         const wallGltf = await this.loadGLBModel(env.wall, 'Wall');
-        
-        // Create walls to form rooms/zones
-        const wallPositions = [
-          { x: -40, y: 0, z: 0, rotY: 0 },
-          { x: 40, y: 0, z: 0, rotY: 0 },
-          { x: 0, y: 0, z: -40, rotY: Math.PI / 2 },
-          { x: 0, y: 0, z: 40, rotY: Math.PI / 2 }
-        ];
-        
-        wallPositions.forEach(pos => {
-          const wallModel = wallGltf.scene.clone();
-          wallModel.position.set(pos.x, pos.y, pos.z);
-          wallModel.rotation.y = pos.rotY;
-          
-          wallModel.traverse((node) => {
-            if (node.isMesh) {
-              node.receiveShadow = true;
-              node.castShadow = true;
-              
-              // Create mesh collider for wall
-              if (this.world) {
-                this.createMeshCollider(node, 0); // mass = 0 for static
-              }
-            }
-          });
-          
-          this.scene.add(wallModel);
-        });
-        
+        this.environmentModels.wall = wallGltf.scene;
         this.addDiagnosticMessage('✓ Asset loaded successfully: wall', 'success');
       } catch (error) {
         this.addDiagnosticMessage(`⚠️ Failed to load wall: ${error.message} (non-critical)`, 'warning');
       }
+    }
+    
+    // Generate map using the loaded GLB models
+    if (this.mapGenerator) {
+      this.addDiagnosticMessage('Generating map with GLB models...', 'info');
+      this.mapGenerator.setLoadedModels(this.environmentModels);
+      await this.mapGenerator.generateMap();
+      this.addDiagnosticMessage('✓ Map generated successfully', 'success');
     }
   }
   
