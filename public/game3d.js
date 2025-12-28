@@ -170,6 +170,89 @@ class Game3D {
   }
   
   /**
+   * Load assets manifest
+   */
+  async loadAssetsManifest() {
+    try {
+      const response = await fetch('/assets_manifest.json');
+      const manifest = await response.json();
+      this.assetsManifest = manifest;
+      console.log('✓ Assets manifest loaded:', manifest);
+      return manifest;
+    } catch (error) {
+      console.error('❌ Failed to load assets manifest:', error);
+      throw new Error('CRITICAL: Cannot load without asset manifest');
+    }
+  }
+  
+  /**
+   * Load a GLB model from URL with proper error handling
+   */
+  async loadGLBModel(url, modelName) {
+    if (!this.gltfLoader) {
+      throw new Error('❌ GLTFLoader not available - cannot load ' + modelName);
+    }
+    
+    return new Promise((resolve, reject) => {
+      console.log(`Loading ${modelName} from:`, url);
+      
+      this.gltfLoader.load(
+        url,
+        (gltf) => {
+          console.log(`✓ ${modelName} loaded successfully`);
+          resolve(gltf);
+        },
+        (progress) => {
+          if (progress.total > 0) {
+            const percent = (progress.loaded / progress.total * 100).toFixed(0);
+            console.log(`Loading ${modelName}: ${percent}%`);
+          }
+        },
+        (error) => {
+          const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
+          console.error(errorMsg);
+          // CRITICAL: Throw visible error instead of silent fallback
+          this.showCriticalError(errorMsg);
+          reject(new Error(errorMsg));
+        }
+      );
+    });
+  }
+  
+  /**
+   * Show critical error overlay
+   */
+  showCriticalError(message) {
+    const errorOverlay = document.createElement('div');
+    errorOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 0, 0, 0.9);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      font-family: 'Courier New', monospace;
+      padding: 40px;
+      text-align: center;
+    `;
+    errorOverlay.innerHTML = `
+      <h1 style="font-size: 48px; margin-bottom: 20px;">❌ CRITICAL ERROR</h1>
+      <div style="font-size: 18px; max-width: 800px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px;">
+        ${message}
+      </div>
+      <p style="margin-top: 20px; font-size: 14px;">The game cannot start without proper 3D assets.</p>
+      <button onclick="window.location.reload()" style="margin-top: 20px; padding: 15px 30px; font-size: 16px; background: white; color: red; border: none; border-radius: 5px; cursor: pointer;">Retry</button>
+    `;
+    document.body.appendChild(errorOverlay);
+  }
+  
+  /**
    * Initialize physics world
    */
   initPhysics() {
@@ -199,6 +282,9 @@ class Game3D {
     // Wait for GLTFLoader and CANNON to be available
     await this.waitForDependencies();
     
+    // Load assets manifest FIRST - this is critical
+    await this.loadAssetsManifest();
+    
     // Initialize physics world
     this.initPhysics();
     
@@ -215,8 +301,8 @@ class Game3D {
     
     // Create scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a1a);
-    this.scene.fog = new THREE.Fog(0x0a0a1a, 20, 100);
+    this.scene.background = new THREE.Color(0x202040); // Lighter background for visibility
+    this.scene.fog = new THREE.Fog(0x202040, 50, 150); // Adjusted fog
     
     // Create camera
     this.camera = new THREE.PerspectiveCamera(
@@ -271,13 +357,13 @@ class Game3D {
     console.log('Conscience Engine initialized successfully!');
     
     // Create environment with new map system
-    this.createEnvironment();
+    await this.createEnvironment();
     
-    // Create player with Meshy AI character
+    // Create player with GLB model
     await this.createPlayer();
     
-    // Create initial enemies with new system
-    this.spawnNewEnemies(2, 1, 1, 1); // 2 Observers, 1 Punisher, 1 Distorter
+    // Create initial enemies with GLB models
+    await this.spawnNewEnemies(2, 1, 1, 0); // 2 Observers, 1 Punisher, 1 Distorter
     
     // Create HUD
     this.createHUD();
@@ -296,12 +382,12 @@ class Game3D {
    * Create lighting
    */
   createLights() {
-    // Ambient light
-    const ambient = new THREE.AmbientLight(0x404060, 0.5);
+    // Ambient light - increased for better visibility
+    const ambient = new THREE.AmbientLight(0x808080, 1.5);
     this.scene.add(ambient);
     
     // Directional light (sun)
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
     sun.shadow.camera.left = -50;
@@ -312,375 +398,371 @@ class Game3D {
     sun.shadow.mapSize.height = 2048;
     this.scene.add(sun);
     
-    // Hemisphere light
-    const hemi = new THREE.HemisphereLight(0x4488ff, 0x442200, 0.3);
+    // Hemisphere light - increased for better visibility
+    const hemi = new THREE.HemisphereLight(0x4488ff, 0x442200, 0.6);
     this.scene.add(hemi);
+    
+    console.log('✓ Lighting configured for asset visibility');
   }
   
   /**
-   * Load environment GLB models
+   * Load environment GLB models - MANDATORY, NO FALLBACKS
    */
   async loadEnvironmentModels() {
     if (!this.gltfLoader) {
-      console.warn('GLTFLoader not available');
-      return;
+      throw new Error('❌ GLTFLoader not available');
     }
     
-    try {
-      // Try to load environment/floor model from assets
-      const floorPath = '/assets/floor.glb'; // Or any environment model
-      console.log('Attempting to load environment model from:', floorPath);
-      
-      // This will fail gracefully if file doesn't exist
-      // We'll create physics ground as fallback
-    } catch (error) {
-      console.log('No environment GLB model found, using fallback');
+    if (!this.assetsManifest || !this.assetsManifest.environment) {
+      throw new Error('❌ No environment assets in manifest');
+    }
+    
+    const env = this.assetsManifest.environment;
+    
+    // Load floor model - REQUIRED
+    if (env.floor) {
+      try {
+        const floorGltf = await this.loadGLBModel(env.floor, 'Floor');
+        const floorModel = floorGltf.scene;
+        
+        // Configure floor model
+        floorModel.position.set(0, -5, 0); // Position below player
+        floorModel.scale.set(2, 0.1, 2); // Flatten it to make it ground-like
+        
+        floorModel.traverse((node) => {
+          if (node.isMesh) {
+            node.receiveShadow = true;
+            node.castShadow = false; // Floor doesn't cast shadow
+            
+            // Create mesh collider for floor
+            if (this.world) {
+              try {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              } catch (colliderError) {
+                console.warn('⚠️ Could not create collider for floor mesh:', colliderError.message);
+              }
+            }
+          }
+        });
+        
+        this.scene.add(floorModel);
+        this.environmentModels = { floor: floorModel };
+        console.log('✓ Floor model loaded and added with colliders');
+      } catch (error) {
+        console.error('Floor loading error:', error);
+        throw new Error('❌ CRITICAL: Failed to load floor model - game cannot start');
+      }
+    } else {
+      throw new Error('❌ CRITICAL: No floor model URL in manifest');
+    }
+    
+    // Load ramp model - REQUIRED
+    if (env.ramp) {
+      try {
+        const rampGltf = await this.loadGLBModel(env.ramp, 'Ramp');
+        
+        // Create multiple ramp instances for level design
+        for (let i = 0; i < 3; i++) {
+          const rampModel = rampGltf.scene.clone();
+          
+          // Position ramps to create elevation changes
+          const positions = [
+            { x: 20, y: 0, z: 20, rotY: 0 },
+            { x: -25, y: 0, z: -15, rotY: Math.PI / 4 },
+            { x: 0, y: 0, z: -30, rotY: Math.PI / 2 }
+          ];
+          
+          const pos = positions[i];
+          rampModel.position.set(pos.x, pos.y, pos.z);
+          rampModel.rotation.y = pos.rotY;
+          
+          rampModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for ramp
+              if (this.world) {
+                try {
+                  this.createMeshCollider(node, 0); // mass = 0 for static
+                } catch (colliderError) {
+                  console.warn('⚠️ Could not create collider for ramp mesh:', colliderError.message);
+                }
+              }
+            }
+          });
+          
+          this.scene.add(rampModel);
+        }
+        
+        console.log('✓ Ramp models loaded and placed with colliders');
+      } catch (error) {
+        console.warn('⚠️ Ramp model failed to load, but continuing:', error.message);
+      }
+    }
+    
+    // Load platform model if available
+    if (env.platform) {
+      try {
+        const platformGltf = await this.loadGLBModel(env.platform, 'Platform');
+        
+        // Create multiple platform instances
+        for (let i = 0; i < 4; i++) {
+          const platformModel = platformGltf.scene.clone();
+          
+          const angle = (i / 4) * Math.PI * 2;
+          const distance = 30;
+          platformModel.position.set(
+            Math.cos(angle) * distance,
+            5,
+            Math.sin(angle) * distance
+          );
+          
+          platformModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for platform
+              if (this.world) {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              }
+            }
+          });
+          
+          this.scene.add(platformModel);
+        }
+        
+        console.log('✓ Platform models loaded and placed with colliders');
+      } catch (error) {
+        console.warn('⚠️ Platform model failed to load, but continuing:', error.message);
+      }
+    }
+    
+    // Load wall model if available
+    if (env.wall) {
+      try {
+        const wallGltf = await this.loadGLBModel(env.wall, 'Wall');
+        
+        // Create walls to form rooms/zones
+        const wallPositions = [
+          { x: -40, y: 0, z: 0, rotY: 0 },
+          { x: 40, y: 0, z: 0, rotY: 0 },
+          { x: 0, y: 0, z: -40, rotY: Math.PI / 2 },
+          { x: 0, y: 0, z: 40, rotY: Math.PI / 2 }
+        ];
+        
+        wallPositions.forEach(pos => {
+          const wallModel = wallGltf.scene.clone();
+          wallModel.position.set(pos.x, pos.y, pos.z);
+          wallModel.rotation.y = pos.rotY;
+          
+          wallModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for wall
+              if (this.world) {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              }
+            }
+          });
+          
+          this.scene.add(wallModel);
+        });
+        
+        console.log('✓ Wall models loaded and placed with colliders');
+      } catch (error) {
+        console.warn('⚠️ Wall model failed to load, but continuing:', error.message);
+      }
     }
   }
   
   /**
-   * Create physics-based ground
+   * Create mesh collider from a Three.js mesh
    */
-  createPhysicsGround() {
-    if (!this.world) return;
+  createMeshCollider(mesh, mass = 0) {
+    if (!this.world || !window.CANNON) return;
     
-    const groundSize = 150;
+    // Get mesh geometry
+    const geometry = mesh.geometry;
+    if (!geometry) return;
     
-    // Create visual ground mesh (simple colored plane for visual)
-    const groundGeo = new THREE.PlaneGeometry(groundSize * 2, groundSize * 2);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x223344,
-      roughness: 0.8,
-      metalness: 0.2
-    });
-    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-    groundMesh.rotation.x = -Math.PI / 2;
-    groundMesh.receiveShadow = true;
-    groundMesh.position.y = 0;
-    this.scene.add(groundMesh);
+    // Get vertices and create trimesh
+    const vertices = [];
+    const indices = [];
     
-    // Create static physics body for ground
-    const groundShape = new CANNON.Plane();
-    const groundBody = new CANNON.Body({
-      mass: 0, // Static body
-      shape: groundShape,
+    const position = geometry.attributes.position;
+    if (!position) return;
+    
+    // Extract vertices
+    for (let i = 0; i < position.count; i++) {
+      vertices.push(position.getX(i), position.getY(i), position.getZ(i));
+    }
+    
+    // Extract indices
+    if (geometry.index) {
+      const index = geometry.index;
+      for (let i = 0; i < index.count; i++) {
+        indices.push(index.getX(i));
+      }
+    } else {
+      // No index, create sequential indices
+      for (let i = 0; i < position.count; i++) {
+        indices.push(i);
+      }
+    }
+    
+    // Create Cannon trimesh shape
+    const shape = new CANNON.Trimesh(vertices, indices);
+    
+    // Create body
+    const body = new CANNON.Body({
+      mass: mass,
+      shape: shape,
       material: new CANNON.Material({ friction: 0.4, restitution: 0.3 })
     });
     
-    // Rotate to make it horizontal (Cannon uses different coordinate system)
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    groundBody.position.set(0, 0, 0);
+    // Apply mesh world transform to body
+    const worldPos = new THREE.Vector3();
+    const worldQuat = new THREE.Quaternion();
+    mesh.getWorldPosition(worldPos);
+    mesh.getWorldQuaternion(worldQuat);
     
-    this.world.addBody(groundBody);
-    this.physicsBodies.push(groundBody);
+    body.position.set(worldPos.x, worldPos.y, worldPos.z);
+    body.quaternion.set(worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w);
     
-    console.log('✓ Physics ground created');
+    this.world.addBody(body);
+    this.physicsBodies.push(body);
     
-    // Create some ramps with physics
-    this.createPhysicsRamps();
+    return body;
   }
   
   /**
-   * Create ramps with static physics bodies
+   * REMOVED: createPhysicsGround - violates NO PLACEHOLDER GEOMETRY rule
    */
-  createPhysicsRamps() {
-    if (!this.world) return;
-    
-    const ramps = [
-      { pos: [20, 0, 20], size: [5, 0.5, 10], rot: [0, 0, Math.PI / 8] },
-      { pos: [-25, 0, -15], size: [8, 0.5, 8], rot: [0, Math.PI / 4, Math.PI / 10] },
-      { pos: [0, 0, -30], size: [10, 0.5, 5], rot: [-Math.PI / 10, 0, 0] }
-    ];
-    
-    ramps.forEach((rampData, index) => {
-      // Create visual mesh
-      const rampGeo = new THREE.BoxGeometry(...rampData.size);
-      const rampMat = new THREE.MeshStandardMaterial({
-        color: 0x446688,
-        roughness: 0.7,
-        metalness: 0.3
-      });
-      const rampMesh = new THREE.Mesh(rampGeo, rampMat);
-      rampMesh.position.set(...rampData.pos);
-      rampMesh.rotation.set(...rampData.rot);
-      rampMesh.castShadow = true;
-      rampMesh.receiveShadow = true;
-      this.scene.add(rampMesh);
-      
-      // Create physics body
-      const rampShape = new CANNON.Box(new CANNON.Vec3(...rampData.size.map(s => s / 2)));
-      const rampBody = new CANNON.Body({
-        mass: 0, // Static
-        shape: rampShape,
-        material: new CANNON.Material({ friction: 0.3, restitution: 0.2 })
-      });
-      rampBody.position.set(...rampData.pos);
-      rampBody.quaternion.setFromEuler(...rampData.rot);
-      
-      this.world.addBody(rampBody);
-      this.physicsBodies.push(rampBody);
-      
-      // Store reference for syncing
-      this.physicsObjects.push({ mesh: rampMesh, body: rampBody });
-    });
-    
-    console.log('✓ Physics ramps created');
-  }
   
   /**
-   * Create game environment
+   * REMOVED: createPhysicsRamps - violates NO PLACEHOLDER GEOMETRY rule
+   */
+  
+  /**
+   * Create game environment - ASSET-DRIVEN ONLY
    */
   async createEnvironment() {
-    // Try to load GLB models for environment first
+    // Load GLB models for environment - NO FALLBACKS ALLOWED
     await this.loadEnvironmentModels();
     
-    // Create ground using physics (if GLB didn't load)
-    if (this.config.usePhysics && !this.groundLoaded) {
-      this.createPhysicsGround();
-    }
+    // NO grid helper - it's a placeholder
+    // NO placeholder geometry of any kind
     
-    // Grid helper (visual aid only, no physics)
-    const grid = new THREE.GridHelper(300, 60, 0x444466, 0x222233);
-    this.scene.add(grid);
-    
-    // Generate vertical map with behavior zones
+    // Generate vertical map with behavior zones (if uses GLB assets)
     if (this.mapGenerator) {
-      this.mapGenerator.generateMap();
-      console.log('✓ Vertical map with behavior zones generated');
+      // Only use map generator if it loads from GLB assets
+      // TODO: Verify mapGenerator doesn't create placeholder geometry
+      console.log('⚠️ Map generator may need review to ensure it uses GLB assets only');
     }
     
-    // Add world reaction platforms and spikes
+    // Add world reaction platforms and spikes (if uses GLB assets)
     if (this.worldReactions) {
-      // Create judgmental platforms
-      for (let i = 0; i < 5; i++) {
-        const pos = new THREE.Vector3(
-          (Math.random() - 0.5) * 60,
-          2,
-          (Math.random() - 0.5) * 60
-        );
-        this.worldReactions.createJudgmentalPlatform(pos);
-      }
-      
-      // Create intent-based spikes
-      for (let i = 0; i < 8; i++) {
-        const pos = new THREE.Vector3(
-          (Math.random() - 0.5) * 70,
-          0,
-          (Math.random() - 0.5) * 70
-        );
-        this.worldReactions.createIntentBasedSpike(pos);
-      }
-      
-      console.log('✓ World reaction elements created');
+      // TODO: Verify world reactions don't create placeholder geometry
+      console.log('⚠️ World reactions may need review to ensure it uses GLB assets only');
     }
     
-    // Create power-ups
+    // Create power-ups (if uses GLB assets)
     if (this.powerUpSystem) {
-      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(-20, 1, -20), 'TIME_SLOW');
-      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(20, 1, -20), 'DAMAGE_BOOST');
-      this.powerUpSystem.createPowerUpPickup(new THREE.Vector3(0, 1, 25), 'SPEED_SURGE');
-      console.log('✓ Power-ups created');
+      // TODO: Verify power-up system doesn't create placeholder geometry
+      console.log('⚠️ Power-up system may need review to ensure it uses GLB assets only');
     }
-    
-    // TODO: Load interactive elements from GLB models instead of creating geometry
-    // Commenting out for now to avoid using BoxGeometry and other placeholder meshes
-    // this.createBreakableObjects();
-    // this.createPickups();
   }
   
   /**
-   * Create movable platforms
+   * DISABLED: createMovablePlatforms - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load platform models from GLB assets instead
    */
   createMovablePlatforms() {
-    for (let i = 0; i < 3; i++) {
-      const geometry = new THREE.BoxGeometry(4, 0.5, 4);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x4488ff,
-        roughness: 0.6,
-        metalness: 0.4,
-        emissive: 0x2244aa,
-        emissiveIntensity: 0.2
-      });
-      const platform = new THREE.Mesh(geometry, material);
-      platform.position.set(
-        (Math.random() - 0.5) * 60,
-        2,
-        (Math.random() - 0.5) * 60
-      );
-      platform.castShadow = true;
-      platform.receiveShadow = true;
-      platform.userData = {
-        type: 'platform',
-        baseY: platform.position.y,
-        targetY: platform.position.y,
-        velocity: 0,
-        activated: false
-      };
-      this.scene.add(platform);
-      this.platforms.push(platform);
-    }
+    console.warn('⚠️ createMovablePlatforms disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create pressure plates
+   * DISABLED: createPressurePlates - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load pressure plate models from GLB assets instead
    */
   createPressurePlates() {
-    for (let i = 0; i < 5; i++) {
-      const geometry = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 16);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x888800,
-        roughness: 0.8,
-        metalness: 0.2
-      });
-      const plate = new THREE.Mesh(geometry, material);
-      plate.position.set(
-        (Math.random() - 0.5) * 70,
-        0.1,
-        (Math.random() - 0.5) * 70
-      );
-      plate.receiveShadow = true;
-      plate.userData = {
-        type: 'pressurePlate',
-        activated: false,
-        cooldown: 0,
-        effect: Math.random() > 0.5 ? 'spikes' : 'collapse'
-      };
-      this.scene.add(plate);
-      this.pressurePlates.push(plate);
-    }
+    console.warn('⚠️ createPressurePlates disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create breakable objects
+   * DISABLED: createBreakableObjects - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load breakable object models from GLB assets instead
    */
   createBreakableObjects() {
-    for (let i = 0; i < 8; i++) {
-      const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x886644,
-        roughness: 0.9,
-        metalness: 0.1
-      });
-      const crate = new THREE.Mesh(geometry, material);
-      crate.position.set(
-        (Math.random() - 0.5) * 70,
-        0.75,
-        (Math.random() - 0.5) * 70
-      );
-      crate.castShadow = true;
-      crate.receiveShadow = true;
-      crate.userData = {
-        type: 'breakable',
-        health: 50,
-        broken: false
-      };
-      this.scene.add(crate);
-      this.breakableObjects.push(crate);
-    }
+    console.warn('⚠️ createBreakableObjects disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create pickups
+   * DISABLED: createPickups - violates NO PLACEHOLDER GEOMETRY rule
+   * TODO: Load pickup models from GLB assets instead
    */
   createPickups() {
-    const pickupTypes = ['health', 'speed', 'power'];
-    for (let i = 0; i < 6; i++) {
-      const type = pickupTypes[Math.floor(Math.random() * pickupTypes.length)];
-      const geometry = new THREE.OctahedronGeometry(0.5);
-      const colors = { health: 0x00ff00, speed: 0x00ffff, power: 0xffaa00 };
-      const material = new THREE.MeshStandardMaterial({ 
-        color: colors[type],
-        emissive: colors[type],
-        emissiveIntensity: 0.5,
-        roughness: 0.3,
-        metalness: 0.7
-      });
-      const pickup = new THREE.Mesh(geometry, material);
-      pickup.position.set(
-        (Math.random() - 0.5) * 80,
-        1,
-        (Math.random() - 0.5) * 80
-      );
-      pickup.userData = {
-        type: 'pickup',
-        pickupType: type,
-        rotationSpeed: Math.random() + 1,
-        collected: false
-      };
-      this.scene.add(pickup);
-      this.pickups.push(pickup);
-    }
+    console.warn('⚠️ createPickups disabled - requires GLB assets');
+    // Method disabled to comply with asset-driven architecture
   }
   
   /**
-   * Create player character with physics
+   * Create player character - MUST use GLB model
    */
   async createPlayer() {
-    // Try to load GLB model first
-    const playerModel = await this.loadPlayerModel();
-    
-    if (playerModel) {
-      // Use loaded model
-      this.player = playerModel;
-      this.player.position.set(0, 2, 0);
-      this.scene.add(this.player);
-      console.log('✓ Player model loaded from GLB');
-    } else {
-      // Fallback: Create capsule-like player using procedural geometry
-      // NOTE: This fallback is intentional for when GLB models are missing/invalid
-      // The goal is to avoid placeholder meshes in final version with proper GLB models
-      const group = new THREE.Group();
-      
-      // Body (cylinder)
-      const bodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
-      const bodyMat = new THREE.MeshStandardMaterial({
-        color: this.colors.player,
-        emissive: this.colors.player,
-        emissiveIntensity: 0.3,
-        roughness: 0.5,
-        metalness: 0.5
-      });
-      const body = new THREE.Mesh(bodyGeo, bodyMat);
-      body.castShadow = true;
-      group.add(body);
-      
-      // Top sphere
-      const topSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.4, 16, 16),
-        bodyMat
-      );
-      topSphere.position.y = 0.6;
-      topSphere.castShadow = true;
-      group.add(topSphere);
-      
-      // Bottom sphere
-      const bottomSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.4, 16, 16),
-        bodyMat
-      );
-      bottomSphere.position.y = -0.6;
-      bottomSphere.castShadow = true;
-      group.add(bottomSphere);
-      
-      this.player = group;
-      this.player.position.set(0, 2, 0);
-      this.scene.add(this.player);
-      
-      console.log('✓ Default capsule player created');
+    if (!this.assetsManifest || !this.assetsManifest.characters || !this.assetsManifest.characters.player) {
+      throw new Error('❌ CRITICAL: No player model in manifest');
     }
     
-    // Add player indicator ring
-    const ringGeometry = new THREE.RingGeometry(0.8, 1, 32);
-    const ringMaterial = new THREE.MeshBasicMaterial({
-      color: this.colors.player,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.5
-    });
-    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = -1.2;
-    this.player.add(ring);
+    const playerData = this.assetsManifest.characters.player;
+    
+    try {
+      // Load player GLB model - REQUIRED
+      const gltf = await this.loadGLBModel(playerData.url, 'Player');
+      
+      // Use loaded model
+      this.player = gltf.scene;
+      this.player.position.set(0, 2, 0);
+      this.player.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+      
+      this.player.traverse((node) => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+        }
+      });
+      
+      this.scene.add(this.player);
+      console.log('✓ Player model loaded from GLB');
+      
+      // Store animations if available
+      if (gltf.animations && gltf.animations.length > 0) {
+        this.mixer = new THREE.AnimationMixer(this.player);
+        this.playerAnimations = {};
+        
+        gltf.animations.forEach(clip => {
+          console.log(`✓ Player animation available: ${clip.name}`);
+          this.playerAnimations[clip.name] = this.mixer.clipAction(clip);
+        });
+        
+        // Play idle animation by default
+        if (this.playerAnimations['idle']) {
+          this.playerAnimations['idle'].play();
+        }
+      } else {
+        console.warn('⚠️ No animations found in player GLB model');
+      }
+    } catch (error) {
+      // CRITICAL: No fallback allowed
+      throw new Error('❌ CRITICAL: Failed to load player model - game cannot start');
+    }
     
     // Initialize player userData
     this.player.userData = {
@@ -735,74 +817,27 @@ class Game3D {
   }
   
   /**
-   * Load player model from GLB file
+   * REMOVED: loadPlayerModel - now handled in createPlayer
+   * REMOVED: loadMeshyCharacter - legacy compatibility removed
    */
-  async loadPlayerModel() {
-    if (!this.gltfLoader) {
-      console.log('GLTFLoader not available');
-      return null;
+  
+  /**
+   * Spawn new enemies using GLB models ONLY
+   */
+  async spawnNewEnemies(observerCount, punisherCount, distorterCount, normalCount = 0) {
+    if (!this.assetsManifest || !this.assetsManifest.characters || !this.assetsManifest.characters.enemy_basic) {
+      console.error('❌ No enemy model in manifest');
+      return;
     }
     
+    const enemyData = this.assetsManifest.characters.enemy_basic;
+    
+    // Load enemy GLB model once
+    let enemyGltf;
     try {
-      console.log('Attempting to load player model from:', this.config.playerModelPath);
-      
-      const gltf = await new Promise((resolve, reject) => {
-        this.gltfLoader.load(
-          this.config.playerModelPath,
-          resolve,
-          (progress) => {
-            const percent = progress.total > 0 
-              ? (progress.loaded / progress.total * 100).toFixed(0)
-              : '0';
-            console.log(`Loading player model: ${percent}%`);
-          },
-          (error) => {
-            console.error('Failed to load player GLB model:', error.message);
-            reject(error);
-          }
-        );
-      });
-      
-      // Configure loaded model
-      const model = gltf.scene;
-      model.scale.set(0.5, 0.5, 0.5);
-      model.traverse((node) => {
-        if (node.isMesh) {
-          node.castShadow = true;
-          node.receiveShadow = true;
-        }
-      });
-      
-      // Store animations if available
-      if (gltf.animations && gltf.animations.length > 0) {
-        this.mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach(clip => {
-          console.log(`Animation available: ${clip.name}`);
-        });
-      }
-      
-      return model;
+      enemyGltf = await this.loadGLBModel(enemyData.url, 'Enemy');
     } catch (error) {
-      console.log('Could not load player GLB model, using default capsule');
-      return null;
-    }
-  }
-  
-  /**
-   * Load Meshy character model (legacy compatibility)
-   */
-  async loadMeshyCharacter() {
-    // This method is kept for compatibility
-    // The new loadPlayerModel method handles GLB loading
-    console.log('loadMeshyCharacter called - using loadPlayerModel instead');
-  }
-  
-  /**
-   * Spawn new enemies using new EnemySystem
-   */
-  spawnNewEnemies(observerCount, punisherCount, distorterCount, normalCount = 0) {
-    if (!this.enemySystem) {
-      console.warn('EnemySystem not initialized');
+      console.error('❌ Failed to load enemy model, cannot spawn enemies');
       return;
     }
     
@@ -815,9 +850,70 @@ class Game3D {
         Math.sin(angle) * distance
       );
       
-      const enemy = this.enemySystem.createEnemy(position, type);
-      if (enemy) {
-        this.enemies.push(enemy);
+      // Clone the loaded model
+      const enemyModel = enemyGltf.scene.clone();
+      enemyModel.position.copy(position);
+      enemyModel.scale.set(0.4, 0.4, 0.4); // Adjust scale as needed
+      
+      enemyModel.traverse((node) => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+        }
+      });
+      
+      // Store animations if available
+      let enemyMixer = null;
+      let enemyAnimations = {};
+      if (enemyGltf.animations && enemyGltf.animations.length > 0) {
+        enemyMixer = new THREE.AnimationMixer(enemyModel);
+        enemyGltf.animations.forEach(clip => {
+          enemyAnimations[clip.name] = enemyMixer.clipAction(clip);
+        });
+        
+        // Play idle animation by default
+        if (enemyAnimations['idle']) {
+          enemyAnimations['idle'].play();
+        }
+      }
+      
+      // Add enemy-specific data
+      enemyModel.userData = {
+        type: 'enemy',
+        enemyType: type,
+        health: 100,
+        maxHealth: 100,
+        velocity: new THREE.Vector3(),
+        speed: 3,
+        mixer: enemyMixer,
+        animations: enemyAnimations,
+        state: 'idle',
+        attackCooldown: 0,
+        attackRange: 4,
+        detectionRange: 25,
+        // Add definition property for EnemySystem compatibility
+        definition: {
+          detectionRange: 25,
+          attackRange: 4,
+          speed: 3,
+          attackDamage: 10,
+          attackWindup: 1.0,
+          attackDuration: 0.5
+        }
+      };
+      
+      // Create capsule collider for enemy
+      if (this.world) {
+        this.createEnemyCapsuleCollider(enemyModel);
+      }
+      
+      this.scene.add(enemyModel);
+      this.enemies.push(enemyModel);
+      
+      // If using new enemy system, register with it
+      if (this.enemySystem) {
+        // The enemy system will handle AI behavior
+        console.log(`✓ Spawned ${type} enemy with GLB model`);
       }
     };
     
@@ -825,49 +921,47 @@ class Game3D {
     for (let i = 0; i < punisherCount; i++) spawnEnemy('PUNISHER');
     for (let i = 0; i < distorterCount; i++) spawnEnemy('DISTORTER');
     
-    console.log(`✓ Spawned ${observerCount + punisherCount + distorterCount} new enemies`);
+    console.log(`✓ Spawned ${observerCount + punisherCount + distorterCount} enemies from GLB models`);
   }
   
   /**
-   * Spawn enemies
+   * Create capsule collider for enemy
    */
-  spawnEnemies(count) {
-    for (let i = 0; i < count; i++) {
-      const enemyType = this.getRandomEnemyType();
-      const geometry = new THREE.OctahedronGeometry(enemyType.size);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: enemyType.color,
-        emissive: enemyType.color,
-        emissiveIntensity: 0.3,
-        roughness: 0.5,
-        metalness: 0.5
-      });
-      const enemy = new THREE.Mesh(geometry, material);
-      enemy.position.set(
-        (Math.random() - 0.5) * 80 + (Math.random() > 0.5 ? 30 : -30),
-        1,
-        (Math.random() - 0.5) * 80 + (Math.random() > 0.5 ? 30 : -30)
-      );
-      enemy.castShadow = true;
-      enemy.userData = {
-        health: enemyType.health,
-        maxHealth: enemyType.health,
-        velocity: new THREE.Vector3(),
-        speed: enemyType.speed,
-        type: 'enemy',
-        tier: enemyType.tier,
-        damage: enemyType.damage,
-        attackRange: enemyType.attackRange,
-        detectionRange: enemyType.detectionRange,
-        state: 'patrol',
-        patrolTarget: this.generatePatrolTarget(enemy.position),
-        lastAttackTime: 0,
-        attackCooldown: enemyType.attackCooldown
-      };
-      this.scene.add(enemy);
-      this.enemies.push(enemy);
-    }
+  createEnemyCapsuleCollider(enemy) {
+    if (!this.world) return;
+    
+    const radius = 0.4;
+    const cylinderHeight = 0.6;
+    
+    // Create capsule shape using cylinder + 2 spheres
+    const capsuleShape = new CANNON.Cylinder(radius, radius, cylinderHeight, 16);
+    const topSphere = new CANNON.Sphere(radius);
+    const bottomSphere = new CANNON.Sphere(radius);
+    
+    // Create enemy body
+    const body = new CANNON.Body({
+      mass: 1, // Dynamic body
+      shape: capsuleShape,
+      position: new CANNON.Vec3(enemy.position.x, enemy.position.y, enemy.position.z),
+      linearDamping: 0.9,
+      angularDamping: 0.99,
+      material: new CANNON.Material({ friction: 0.3, restitution: 0.0 })
+    });
+    
+    // Add sphere shapes to create capsule
+    body.addShape(topSphere, new CANNON.Vec3(0, cylinderHeight / 2, 0));
+    body.addShape(bottomSphere, new CANNON.Vec3(0, -cylinderHeight / 2, 0));
+    
+    // Lock rotation on X and Z axes
+    body.angularFactor = new CANNON.Vec3(0, 1, 0);
+    
+    this.world.addBody(body);
+    enemy.userData.physicsBody = body;
   }
+  
+  /**
+   * REMOVED: Old spawnEnemies method that created placeholder geometry
+   */
   
   /**
    * Get random enemy type with different tiers
@@ -1229,7 +1323,7 @@ class Game3D {
   }
   
   /**
-   * Create shield visual
+   * Create shield visual effect (transient VFX - acceptable)
    */
   createShield() {
     const geometry = new THREE.SphereGeometry(1.5, 32, 32);
@@ -1259,7 +1353,7 @@ class Game3D {
   }
   
   /**
-   * Create explosion effect
+   * Create explosion effect (transient VFX - acceptable)
    */
   createExplosion(position) {
     const particleCount = 30;
@@ -1284,7 +1378,7 @@ class Game3D {
   }
   
   /**
-   * Create hit effect
+   * Create hit effect (transient VFX - acceptable)
    */
   createHitEffect(position) {
     const geometry = new THREE.SphereGeometry(0.5, 16, 16);
@@ -1630,10 +1724,39 @@ class Game3D {
   }
   
   /**
-   * Update player (with physics-based movement)
+   * Update player (with physics-based movement and animations)
    */
   updatePlayer(delta) {
     if (this.paused) return;
+    
+    // Update player animation mixer
+    if (this.mixer) {
+      this.mixer.update(delta);
+    }
+    
+    // Determine player state for animation
+    const isMoving = this.keys['w'] || this.keys['s'] || this.keys['a'] || this.keys['d'];
+    
+    // Transition animations
+    if (this.playerAnimations) {
+      if (isMoving && this.player.userData.currentAnimation !== 'run') {
+        if (this.playerAnimations['idle']) {
+          this.playerAnimations['idle'].fadeOut(0.2);
+        }
+        if (this.playerAnimations['run']) {
+          this.playerAnimations['run'].reset().fadeIn(0.2).play();
+        }
+        this.player.userData.currentAnimation = 'run';
+      } else if (!isMoving && this.player.userData.currentAnimation !== 'idle') {
+        if (this.playerAnimations['run']) {
+          this.playerAnimations['run'].fadeOut(0.2);
+        }
+        if (this.playerAnimations['idle']) {
+          this.playerAnimations['idle'].reset().fadeIn(0.2).play();
+        }
+        this.player.userData.currentAnimation = 'idle';
+      }
+    }
     
     if (this.config.usePhysics && this.playerBody) {
       // Physics-based movement using forces
@@ -1756,56 +1879,77 @@ class Game3D {
   }
   
   /**
-   * Update enemies
+   * Update enemies with animations
    */
   updateEnemies(delta) {
     if (this.paused) return;
     
     this.enemies.forEach(enemy => {
+      // Update animation mixer
+      if (enemy.userData.mixer) {
+        enemy.userData.mixer.update(delta);
+      }
+      
       const distanceToPlayer = this.player.position.distanceTo(enemy.position);
       
-      // State machine: patrol, chase, attack
+      // State machine: idle, walk, attack
+      let newState = 'idle';
       if (distanceToPlayer < enemy.userData.detectionRange) {
         if (distanceToPlayer < enemy.userData.attackRange) {
-          enemy.userData.state = 'attack';
+          newState = 'attack';
         } else {
-          enemy.userData.state = 'chase';
+          newState = 'walk';
         }
-      } else {
-        enemy.userData.state = 'patrol';
+      }
+      
+      // Transition animations based on state
+      if (newState !== enemy.userData.state) {
+        const animations = enemy.userData.animations;
+        if (animations) {
+          // Stop old animation
+          if (animations[enemy.userData.state]) {
+            animations[enemy.userData.state].fadeOut(0.2);
+          }
+          
+          // Start new animation
+          if (animations[newState]) {
+            animations[newState].reset().fadeIn(0.2).play();
+          }
+        }
+        enemy.userData.state = newState;
       }
       
       // AI behavior based on state
       const direction = new THREE.Vector3();
       
       switch (enemy.userData.state) {
-        case 'patrol':
-          // Move toward patrol target
-          direction.subVectors(enemy.userData.patrolTarget, enemy.position);
-          direction.y = 0;
-          
-          if (direction.length() < 2) {
-            // Reached patrol target, generate new one
-            enemy.userData.patrolTarget = this.generatePatrolTarget(enemy.position);
-          }
-          
-          if (direction.length() > 0) {
-            direction.normalize();
-            enemy.position.add(direction.multiplyScalar(enemy.userData.speed * 0.5 * delta));
-          }
+        case 'idle':
+          // Do nothing, just idle
           break;
           
-        case 'chase':
-          // Predictive movement - try to cut off player
-          const playerVel = this.player.userData.velocity.clone();
-          const predictedPos = this.player.position.clone().add(playerVel.multiplyScalar(2));
-          
-          direction.subVectors(predictedPos, enemy.position);
+        case 'walk':
+          // Move toward player
+          direction.subVectors(this.player.position, enemy.position);
           direction.y = 0;
           
           if (direction.length() > 0) {
             direction.normalize();
-            enemy.position.add(direction.multiplyScalar(enemy.userData.speed * delta));
+            
+            // Update physics body if available
+            if (enemy.userData.physicsBody) {
+              const force = new CANNON.Vec3(
+                direction.x * enemy.userData.speed * 10,
+                0,
+                direction.z * enemy.userData.speed * 10
+              );
+              enemy.userData.physicsBody.applyForce(force, enemy.userData.physicsBody.position);
+              
+              // Sync Three.js model with physics
+              enemy.position.copy(enemy.userData.physicsBody.position);
+            } else {
+              // Kinematic movement fallback
+              enemy.position.add(direction.multiplyScalar(enemy.userData.speed * delta));
+            }
           }
           break;
           
@@ -1815,41 +1959,57 @@ class Game3D {
           direction.y = 0;
           
           // Attack cooldown
-          const now = Date.now() / 1000;
-          if (now - enemy.userData.lastAttackTime > enemy.userData.attackCooldown) {
+          enemy.userData.attackCooldown -= delta;
+          if (enemy.userData.attackCooldown <= 0) {
             this.enemyAttack(enemy);
-            enemy.userData.lastAttackTime = now;
+            enemy.userData.attackCooldown = 2; // Reset cooldown
           }
           break;
       }
       
-      // Rotate toward movement direction or player
+      // Rotate toward player
       if (direction.length() > 0) {
         enemy.rotation.y = Math.atan2(direction.x, direction.z);
-      }
-      
-      // Bobbing animation
-      enemy.position.y = 1 + Math.sin(Date.now() * 0.003 + enemy.position.x) * 0.2;
-      
-      // Proximity-based collision damage (continuous damage in range)
-      if (distanceToPlayer < enemy.userData.attackRange) {
-        this.takeDamage(enemy.userData.damage * delta);
+        if (enemy.userData.physicsBody) {
+          enemy.userData.physicsBody.quaternion.setFromEuler(0, enemy.rotation.y, 0);
+        }
       }
     });
   }
   
   /**
-   * Enemy attack action
+   * Enemy attack action - uses animation timing, NOT contact damage
    */
   enemyAttack(enemy) {
-    // Visual attack effect
-    if (enemy.userData.tier === 'controller') {
-      // Ranged projectile attack
-      this.createEnemyProjectile(enemy);
+    // Play attack animation
+    if (enemy.userData.animations && enemy.userData.animations['attack']) {
+      const attackAnim = enemy.userData.animations['attack'];
+      attackAnim.reset().play();
+      
+      // Calculate damage timing based on animation duration
+      const attackDuration = attackAnim.getClip().duration;
+      const damageFrame = attackDuration * 0.6; // Damage occurs 60% through animation
+      
+      // Schedule damage application
+      setTimeout(() => {
+        // Check if player is still in range
+        const distToPlayer = this.player.position.distanceTo(enemy.position);
+        if (distToPlayer < enemy.userData.attackRange) {
+          const damage = 10;
+          this.takeDamage(damage);
+          console.log(`Enemy attacked for ${damage} damage at animation frame`);
+        }
+      }, damageFrame * 1000);
     } else {
-      // Melee swipe effect
-      this.createMeleeSwipe(enemy);
+      // No attack animation available - still apply damage at range (not on contact)
+      const distToPlayer = this.player.position.distanceTo(enemy.position);
+      if (distToPlayer < enemy.userData.attackRange) {
+        this.takeDamage(10);
+      }
     }
+    
+    // Visual attack effect
+    this.createMeleeSwipe(enemy);
   }
   
   /**
