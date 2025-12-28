@@ -191,45 +191,75 @@ class Game3D {
   
   /**
    * Load a GLB model from URL with proper error handling and logging
+   * Uses client-side binary fetch to ensure compatibility with external URLs
    */
   async loadGLBModel(url, modelName) {
     if (!this.gltfLoader) {
       throw new Error('❌ GLTFLoader not available - cannot load ' + modelName);
     }
     
-    return new Promise((resolve, reject) => {
-      console.log(`📦 Loading ${modelName} from: ${url}`);
-      if (this.diagnosticMessages) {
-        this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
+    // Ensure we're running client-side
+    if (typeof window === 'undefined') {
+      throw new Error('❌ GLB loading must run client-side');
+    }
+    
+    console.log(`📦 Loading ${modelName} from: ${url}`);
+    console.log(`   window exists: ${typeof window !== 'undefined'}`);
+    
+    if (this.diagnosticMessages) {
+      this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
+    }
+    
+    try {
+      // Fetch as binary (arrayBuffer) for proper GLB handling
+      const response = await fetch(url);
+      
+      console.log(`   response.ok: ${response.ok}`);
+      console.log(`   response.status: ${response.status}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      this.gltfLoader.load(
-        url,
-        (gltf) => {
-          console.log(`✓ ${modelName} loaded successfully`);
-          if (this.diagnosticMessages) {
-            this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
+      const buffer = await response.arrayBuffer();
+      console.log(`   byteLength: ${buffer.byteLength}`);
+      
+      if (buffer.byteLength === 0) {
+        throw new Error('Empty buffer received');
+      }
+      
+      // Parse the binary data using GLTFLoader
+      return new Promise((resolve, reject) => {
+        this.gltfLoader.parse(
+          buffer,
+          '', // path (not needed for binary data)
+          (gltf) => {
+            console.log(`✓ ${modelName} loaded successfully`);
+            if (this.diagnosticMessages) {
+              this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
+            }
+            resolve(gltf);
+          },
+          (error) => {
+            const errorMsg = `❌ FAILED TO PARSE ${modelName}: ${error.message}`;
+            console.error(errorMsg);
+            if (this.diagnosticMessages) {
+              this.addDiagnosticMessage(errorMsg, 'error');
+            }
+            reject(new Error(errorMsg));
           }
-          resolve(gltf);
-        },
-        (progress) => {
-          if (progress.total > 0) {
-            const percent = (progress.loaded / progress.total * 100).toFixed(0);
-            console.log(`Loading ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
-          }
-        },
-        (error) => {
-          const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
-          console.error(errorMsg);
-          if (this.diagnosticMessages) {
-            this.addDiagnosticMessage(errorMsg, 'error');
-          }
-          // Show critical error overlay
-          this.showCriticalError(errorMsg);
-          reject(new Error(errorMsg));
-        }
-      );
-    });
+        );
+      });
+    } catch (error) {
+      const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
+      console.error(errorMsg);
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(errorMsg, 'error');
+      }
+      // Show critical error overlay
+      this.showCriticalError(errorMsg);
+      throw new Error(errorMsg);
+    }
   }
   
   /**
