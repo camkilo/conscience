@@ -21,6 +21,10 @@ class Game3D {
     this.clock = new THREE.Clock();
     this.lastDelta = 0;
     
+    // Diagnostic overlay system
+    this.diagnosticOverlay = null;
+    this.diagnosticMessages = [];
+    
     // Physics world
     this.world = null;
     this.physicsBodies = []; // Track all physics bodies
@@ -186,7 +190,7 @@ class Game3D {
   }
   
   /**
-   * Load a GLB model from URL with proper error handling
+   * Load a GLB model from URL with proper error handling and logging
    */
   async loadGLBModel(url, modelName) {
     if (!this.gltfLoader) {
@@ -194,24 +198,33 @@ class Game3D {
     }
     
     return new Promise((resolve, reject) => {
-      console.log(`Loading ${modelName} from:`, url);
+      console.log(`📦 Loading ${modelName} from: ${url}`);
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
+      }
       
       this.gltfLoader.load(
         url,
         (gltf) => {
           console.log(`✓ ${modelName} loaded successfully`);
+          if (this.diagnosticMessages) {
+            this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
+          }
           resolve(gltf);
         },
         (progress) => {
           if (progress.total > 0) {
             const percent = (progress.loaded / progress.total * 100).toFixed(0);
-            console.log(`Loading ${modelName}: ${percent}%`);
+            console.log(`Loading ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
           }
         },
         (error) => {
           const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
           console.error(errorMsg);
-          // CRITICAL: Throw visible error instead of silent fallback
+          if (this.diagnosticMessages) {
+            this.addDiagnosticMessage(errorMsg, 'error');
+          }
+          // Show critical error overlay
           this.showCriticalError(errorMsg);
           reject(new Error(errorMsg));
         }
@@ -276,106 +289,285 @@ class Game3D {
   }
   
   /**
-   * Initialize the 3D game
+   * Create diagnostic overlay
+   */
+  createDiagnosticOverlay() {
+    this.diagnosticOverlay = document.createElement('div');
+    this.diagnosticOverlay.id = 'diagnostic-overlay';
+    this.diagnosticOverlay.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #00ff88;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      padding: 20px;
+      border: 2px solid #00ff88;
+      border-radius: 5px;
+      z-index: 10000;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    `;
+    document.body.appendChild(this.diagnosticOverlay);
+    this.updateDiagnosticOverlay();
+  }
+  
+  /**
+   * Add diagnostic message
+   */
+  addDiagnosticMessage(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const icon = type === 'success' ? '✓' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ';
+    const color = type === 'success' ? '#00ff88' : type === 'error' ? '#ff4444' : type === 'warning' ? '#ffaa00' : '#4488ff';
+    
+    this.diagnosticMessages.push({
+      timestamp,
+      message,
+      type,
+      icon,
+      color
+    });
+    
+    console.log(`[${timestamp}] ${icon} ${message}`);
+    this.updateDiagnosticOverlay();
+  }
+  
+  /**
+   * Update diagnostic overlay display
+   */
+  updateDiagnosticOverlay() {
+    if (!this.diagnosticOverlay) return;
+    
+    let html = '<div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">🔍 INITIALIZATION DIAGNOSTICS</div>';
+    
+    this.diagnosticMessages.forEach(msg => {
+      html += `
+        <div style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-left: 3px solid ${msg.color};">
+          <span style="color: ${msg.color};">${msg.icon}</span>
+          <span style="color: #999; font-size: 11px; margin-left: 8px;">[${msg.timestamp}]</span>
+          <div style="margin-top: 4px;">${msg.message}</div>
+        </div>
+      `;
+    });
+    
+    this.diagnosticOverlay.innerHTML = html;
+  }
+  
+  /**
+   * Hide diagnostic overlay after successful initialization
+   */
+  hideDiagnosticOverlay() {
+    if (this.diagnosticOverlay) {
+      setTimeout(() => {
+        this.diagnosticOverlay.style.opacity = '0';
+        this.diagnosticOverlay.style.transition = 'opacity 1s';
+        setTimeout(() => {
+          if (this.diagnosticOverlay && this.diagnosticOverlay.parentNode) {
+            this.diagnosticOverlay.parentNode.removeChild(this.diagnosticOverlay);
+          }
+        }, 1000);
+      }, 2000);
+    }
+  }
+  
+  /**
+   * Initialize the 3D game with full diagnostics
    */
   async init() {
-    // Wait for GLTFLoader and CANNON to be available
-    await this.waitForDependencies();
+    try {
+      // Create diagnostic overlay FIRST
+      this.createDiagnosticOverlay();
+      this.addDiagnosticMessage('Starting game initialization...', 'info');
+      
+      // Wait for GLTFLoader and CANNON to be available
+      this.addDiagnosticMessage('Waiting for dependencies (GLTFLoader, CANNON)...', 'info');
+      await this.waitForDependencies();
+      this.addDiagnosticMessage('Dependencies loaded successfully', 'success');
+      
+      // Load assets manifest FIRST - this is critical
+      this.addDiagnosticMessage('Loading assets manifest...', 'info');
+      await this.loadAssetsManifest();
+      this.addDiagnosticMessage('Assets manifest loaded successfully', 'success');
+      
+      // Initialize physics world
+      this.addDiagnosticMessage('Initializing physics world...', 'info');
+      this.initPhysics();
+      this.addDiagnosticMessage('Physics world initialized', 'success');
+      
+      // STEP 1: Create renderer
+      this.addDiagnosticMessage('Creating WebGL renderer...', 'info');
+      this.renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: false 
+      });
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(window.devicePixelRatio);
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(this.renderer.domElement);
+      
+      // Verify renderer size
+      const size = this.renderer.getSize(new THREE.Vector2());
+      if (size.x === 0 || size.y === 0) {
+        throw new Error('Renderer size is zero!');
+      }
+      this.addDiagnosticMessage(`✓ Renderer initialized: ${size.x}x${size.y}`, 'success');
+      
+      // STEP 2: Create scene
+      this.addDiagnosticMessage('Creating scene...', 'info');
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x202040); // Lighter background for visibility
+      this.scene.fog = new THREE.Fog(0x202040, 50, 150); // Adjusted fog
+      this.addDiagnosticMessage('✓ Scene created', 'success');
+      
+      // STEP 3: Create camera
+      this.addDiagnosticMessage('Creating camera...', 'info');
+      this.camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      // Position camera above ground, looking at center
+      this.camera.position.set(0, 10, 15);
+      this.camera.lookAt(0, 0, 0);
+      this.addDiagnosticMessage(`✓ Camera active at position (${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`, 'success');
+      this.addDiagnosticMessage(`Camera looking at origin, frustum visible: YES`, 'success');
+      
+      // STEP 4: Create lights (EMERGENCY FALLBACK LIGHTING)
+      this.addDiagnosticMessage('Adding emergency fallback lighting...', 'info');
+      this.createLights();
+      this.addDiagnosticMessage('✓ Lights active (Directional + Ambient)', 'success');
+      
+      // Add temporary visual debug helpers
+      this.addDiagnosticMessage('Adding debug helpers (axis, grid)...', 'info');
+      this.addDebugHelpers();
+      this.addDiagnosticMessage('✓ Debug helpers added', 'success');
+      
+      // STEP 5: Load FLOOR first (REQUIRED - DO NOT CONTINUE IF FAILS)
+      this.addDiagnosticMessage('Loading floor asset (CRITICAL)...', 'info');
+      await this.loadFloorAsset();
+      this.addDiagnosticMessage('✓ Floor loaded successfully and visible', 'success');
+      
+      // Position camera above floor
+      this.camera.position.set(0, 10, 15);
+      this.camera.lookAt(0, 0, 0);
+      this.addDiagnosticMessage('✓ Camera positioned above floor', 'success');
+      
+      // RENDER IMMEDIATELY after floor loads
+      this.addDiagnosticMessage('Rendering initial frame with floor...', 'info');
+      this.renderer.render(this.scene, this.camera);
+      this.addDiagnosticMessage('✓ Initial frame rendered - floor should be visible!', 'success');
+      
+      // ===== NEW: Initialize Conscience Engine Systems =====
+      this.addDiagnosticMessage('Initializing Conscience Engine systems...', 'info');
     
-    // Load assets manifest FIRST - this is critical
-    await this.loadAssetsManifest();
-    
-    // Initialize physics world
-    this.initPhysics();
-    
-    // Create renderer
-    this.renderer = new THREE.WebGLRenderer({ 
-      antialias: true,
-      alpha: false 
-    });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(this.renderer.domElement);
-    
-    // Create scene
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x202040); // Lighter background for visibility
-    this.scene.fog = new THREE.Fog(0x202040, 50, 150); // Adjusted fog
-    
-    // Create camera
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    
-    // Create lights
-    this.createLights();
-    
-    // ===== NEW: Initialize Conscience Engine Systems =====
-    console.log('Initializing Conscience Engine...');
+      this.addDiagnosticMessage('Initializing Conscience Engine systems...', 'info');
     
     // Initialize Intent Tracker
     if (window.IntentTracker) {
       this.intentTracker = new window.IntentTracker();
-      console.log('✓ Intent Tracker initialized');
+      this.addDiagnosticMessage('✓ Intent Tracker initialized', 'success');
     }
     
     // Initialize World Reactions
     if (window.WorldReactions && this.intentTracker) {
       this.worldReactions = new window.WorldReactions(this.scene, this.intentTracker);
-      console.log('✓ World Reactions initialized');
+      this.addDiagnosticMessage('✓ World Reactions initialized', 'success');
     }
     
     // Initialize Power-Up System
     if (window.PowerUpSystem && this.intentTracker) {
       this.powerUpSystem = new window.PowerUpSystem(this.scene, this.intentTracker);
-      console.log('✓ Power-Up System initialized');
+      this.addDiagnosticMessage('✓ Power-Up System initialized', 'success');
     }
     
     // Initialize Enemy System
     if (window.EnemySystem && this.intentTracker) {
       this.enemySystem = new window.EnemySystem(this.scene, this.intentTracker);
-      console.log('✓ Enemy System initialized');
+      this.addDiagnosticMessage('✓ Enemy System initialized', 'success');
     }
     
     // Initialize Death Screen
     if (window.DeathScreen && this.intentTracker) {
       this.deathScreen = new window.DeathScreen(this.intentTracker);
-      console.log('✓ Death Screen initialized');
+      this.addDiagnosticMessage('✓ Death Screen initialized', 'success');
     }
     
     // Initialize Vertical Map Generator
     if (window.VerticalMapGenerator) {
       this.mapGenerator = new window.VerticalMapGenerator(this.scene);
-      console.log('✓ Vertical Map Generator initialized');
+      this.addDiagnosticMessage('✓ Vertical Map Generator initialized', 'success');
     }
     
-    console.log('Conscience Engine initialized successfully!');
+    this.addDiagnosticMessage('Conscience Engine initialized successfully!', 'success');
     
-    // Create environment with new map system
-    await this.createEnvironment();
+    // STEP 6: Load REST of environment (non-critical)
+    this.addDiagnosticMessage('Loading additional environment assets...', 'info');
+    await this.loadAdditionalEnvironmentAssets();
+    this.addDiagnosticMessage('✓ Additional environment assets loaded', 'success');
     
     // Create player with GLB model
+    this.addDiagnosticMessage('Loading player model...', 'info');
     await this.createPlayer();
+    this.addDiagnosticMessage('✓ Player loaded and positioned', 'success');
     
     // Create initial enemies with GLB models
+    this.addDiagnosticMessage('Spawning enemies...', 'info');
     await this.spawnNewEnemies(2, 1, 1, 0); // 2 Observers, 1 Punisher, 1 Distorter
+    this.addDiagnosticMessage('✓ Enemies spawned successfully', 'success');
     
     // Create HUD
+    this.addDiagnosticMessage('Creating HUD...', 'info');
     this.createHUD();
+    this.addDiagnosticMessage('✓ HUD created', 'success');
     
     // Setup input handlers
+    this.addDiagnosticMessage('Setting up input handlers...', 'info');
     this.setupInputHandlers();
+    this.addDiagnosticMessage('✓ Input handlers ready', 'success');
     
     // Handle window resize
     window.addEventListener('resize', () => this.onWindowResize());
     
+    // Final render to confirm everything is visible
+    this.renderer.render(this.scene, this.camera);
+    
+    // All initialization complete!
+    this.addDiagnosticMessage('=== INITIALIZATION COMPLETE ===', 'success');
+    this.addDiagnosticMessage('Game is ready to play!', 'success');
+    
+    // Hide diagnostic overlay after a moment
+    this.hideDiagnosticOverlay();
+    
     // Start animation loop
     this.animate();
+  } catch (error) {
+    // Show error prominently
+    this.addDiagnosticMessage(`CRITICAL ERROR: ${error.message}`, 'error');
+    this.showCriticalError(`Initialization failed: ${error.message}\n\nCheck the diagnostic overlay for details.`);
+    throw error;
+  }
+}
+  
+  /**
+   * Add debug helpers (axis, grid)
+   */
+  addDebugHelpers() {
+    // Axis helper at world origin
+    const axisHelper = new THREE.AxesHelper(10);
+    axisHelper.name = 'axisHelper';
+    this.scene.add(axisHelper);
+    console.log('✓ Axis helper added at world origin (Red=X, Green=Y, Blue=Z)');
+    
+    // Grid helper for floor reference
+    const gridHelper = new THREE.GridHelper(200, 20, 0x00ff88, 0x444444);
+    gridHelper.name = 'gridHelper';
+    gridHelper.position.y = -0.01; // Slightly below floor to avoid z-fighting
+    this.scene.add(gridHelper);
+    console.log('✓ Grid helper added for floor reference');
   }
   
   /**
@@ -406,7 +598,198 @@ class Game3D {
   }
   
   /**
-   * Load environment GLB models - MANDATORY, NO FALLBACKS
+   * Load floor asset FIRST - CRITICAL, blocks initialization if fails
+   */
+  async loadFloorAsset() {
+    if (!this.gltfLoader) {
+      throw new Error('❌ GLTFLoader not available');
+    }
+    
+    if (!this.assetsManifest || !this.assetsManifest.environment || !this.assetsManifest.environment.floor) {
+      throw new Error('❌ No floor asset URL in manifest');
+    }
+    
+    const floorUrl = this.assetsManifest.environment.floor;
+    
+    this.addDiagnosticMessage(`Asset: floor`, 'info');
+    this.addDiagnosticMessage(`URL: ${floorUrl}`, 'info');
+    
+    try {
+      const floorGltf = await this.loadGLBModel(floorUrl, 'Floor');
+      const floorModel = floorGltf.scene;
+      
+      // Configure floor model
+      floorModel.position.set(0, -5, 0); // Position below player
+      floorModel.scale.set(2, 0.1, 2); // Flatten it to make it ground-like
+      
+      floorModel.traverse((node) => {
+        if (node.isMesh) {
+          node.receiveShadow = true;
+          node.castShadow = false; // Floor doesn't cast shadow
+          
+          // Create mesh collider for floor
+          if (this.world) {
+            try {
+              this.createMeshCollider(node, 0); // mass = 0 for static
+              this.addDiagnosticMessage('✓ Floor collider created', 'success');
+            } catch (colliderError) {
+              this.addDiagnosticMessage(`⚠️ Could not create collider for floor: ${colliderError.message}`, 'warning');
+            }
+          }
+        }
+      });
+      
+      this.scene.add(floorModel);
+      this.environmentModels = { floor: floorModel };
+      
+      this.addDiagnosticMessage(`✓ Asset loaded successfully: floor`, 'success');
+      
+    } catch (error) {
+      const errorMsg = `❌ FAILED TO LOAD: floor\nURL: ${floorUrl}\nError: ${error.message}`;
+      this.addDiagnosticMessage(errorMsg, 'error');
+      throw new Error(`CRITICAL: Cannot start without floor - ${error.message}`);
+    }
+  }
+  
+  /**
+   * Load additional environment assets (non-blocking)
+   */
+  async loadAdditionalEnvironmentAssets() {
+    if (!this.gltfLoader || !this.assetsManifest || !this.assetsManifest.environment) {
+      this.addDiagnosticMessage('⚠️ No additional environment assets to load', 'warning');
+      return;
+    }
+    
+    const env = this.assetsManifest.environment;
+    
+    // Load ramp model
+    if (env.ramp) {
+      try {
+        this.addDiagnosticMessage(`Loading asset: ramp from ${env.ramp}`, 'info');
+        const rampGltf = await this.loadGLBModel(env.ramp, 'Ramp');
+        
+        // Create multiple ramp instances for level design
+        for (let i = 0; i < 3; i++) {
+          const rampModel = rampGltf.scene.clone();
+          
+          // Position ramps to create elevation changes
+          const positions = [
+            { x: 20, y: 0, z: 20, rotY: 0 },
+            { x: -25, y: 0, z: -15, rotY: Math.PI / 4 },
+            { x: 0, y: 0, z: -30, rotY: Math.PI / 2 }
+          ];
+          
+          const pos = positions[i];
+          rampModel.position.set(pos.x, pos.y, pos.z);
+          rampModel.rotation.y = pos.rotY;
+          
+          rampModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for ramp
+              if (this.world) {
+                try {
+                  this.createMeshCollider(node, 0); // mass = 0 for static
+                } catch (colliderError) {
+                  this.addDiagnosticMessage(`⚠️ Could not create collider for ramp: ${colliderError.message}`, 'warning');
+                }
+              }
+            }
+          });
+          
+          this.scene.add(rampModel);
+        }
+        
+        this.addDiagnosticMessage('✓ Asset loaded successfully: ramp', 'success');
+      } catch (error) {
+        this.addDiagnosticMessage(`⚠️ Failed to load ramp: ${error.message} (non-critical)`, 'warning');
+      }
+    }
+    
+    // Load platform model if available
+    if (env.platform) {
+      try {
+        this.addDiagnosticMessage(`Loading asset: platform from ${env.platform}`, 'info');
+        const platformGltf = await this.loadGLBModel(env.platform, 'Platform');
+        
+        // Create multiple platform instances
+        for (let i = 0; i < 4; i++) {
+          const platformModel = platformGltf.scene.clone();
+          
+          const angle = (i / 4) * Math.PI * 2;
+          const distance = 30;
+          platformModel.position.set(
+            Math.cos(angle) * distance,
+            5,
+            Math.sin(angle) * distance
+          );
+          
+          platformModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for platform
+              if (this.world) {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              }
+            }
+          });
+          
+          this.scene.add(platformModel);
+        }
+        
+        this.addDiagnosticMessage('✓ Asset loaded successfully: platform', 'success');
+      } catch (error) {
+        this.addDiagnosticMessage(`⚠️ Failed to load platform: ${error.message} (non-critical)`, 'warning');
+      }
+    }
+    
+    // Load wall model if available
+    if (env.wall) {
+      try {
+        this.addDiagnosticMessage(`Loading asset: wall from ${env.wall}`, 'info');
+        const wallGltf = await this.loadGLBModel(env.wall, 'Wall');
+        
+        // Create walls to form rooms/zones
+        const wallPositions = [
+          { x: -40, y: 0, z: 0, rotY: 0 },
+          { x: 40, y: 0, z: 0, rotY: 0 },
+          { x: 0, y: 0, z: -40, rotY: Math.PI / 2 },
+          { x: 0, y: 0, z: 40, rotY: Math.PI / 2 }
+        ];
+        
+        wallPositions.forEach(pos => {
+          const wallModel = wallGltf.scene.clone();
+          wallModel.position.set(pos.x, pos.y, pos.z);
+          wallModel.rotation.y = pos.rotY;
+          
+          wallModel.traverse((node) => {
+            if (node.isMesh) {
+              node.receiveShadow = true;
+              node.castShadow = true;
+              
+              // Create mesh collider for wall
+              if (this.world) {
+                this.createMeshCollider(node, 0); // mass = 0 for static
+              }
+            }
+          });
+          
+          this.scene.add(wallModel);
+        });
+        
+        this.addDiagnosticMessage('✓ Asset loaded successfully: wall', 'success');
+      } catch (error) {
+        this.addDiagnosticMessage(`⚠️ Failed to load wall: ${error.message} (non-critical)`, 'warning');
+      }
+    }
+  }
+  
+  /**
+   * Load environment GLB models - DEPRECATED, replaced by loadFloorAsset and loadAdditionalEnvironmentAssets
    */
   async loadEnvironmentModels() {
     if (!this.gltfLoader) {
@@ -723,6 +1106,8 @@ class Game3D {
     
     const playerData = this.assetsManifest.characters.player;
     
+    this.addDiagnosticMessage(`Loading player model from ${playerData.url}...`, 'info');
+    
     try {
       // Load player GLB model - REQUIRED
       const gltf = await this.loadGLBModel(playerData.url, 'Player');
@@ -740,7 +1125,7 @@ class Game3D {
       });
       
       this.scene.add(this.player);
-      console.log('✓ Player model loaded from GLB');
+      this.addDiagnosticMessage(`✓ Player model loaded and positioned at (0, 2, 0)`, 'success');
       
       // Store animations if available
       if (gltf.animations && gltf.animations.length > 0) {
@@ -748,7 +1133,7 @@ class Game3D {
         this.playerAnimations = {};
         
         gltf.animations.forEach(clip => {
-          console.log(`✓ Player animation available: ${clip.name}`);
+          this.addDiagnosticMessage(`✓ Player animation available: ${clip.name}`, 'success');
           this.playerAnimations[clip.name] = this.mixer.clipAction(clip);
         });
         
@@ -757,21 +1142,25 @@ class Game3D {
           this.playerAnimations['idle'].play();
         }
       } else {
-        console.warn('⚠️ No animations found in player GLB model');
+        this.addDiagnosticMessage('⚠️ No animations found in player GLB model', 'warning');
       }
     } catch (error) {
       // CRITICAL: No fallback allowed
+      this.addDiagnosticMessage(`❌ CRITICAL: Failed to load player model`, 'error');
       throw new Error('❌ CRITICAL: Failed to load player model - game cannot start');
     }
     
-    // Initialize player userData
+    // Initialize player userData (MUST be done before any update loops)
     this.player.userData = {
-      velocity: new THREE.Vector3(),
+      velocity: new THREE.Vector3(0, 0, 0),
       speed: 10,
       rotation: 0,
       isMoving: false,
-      lastAction: null
+      lastAction: null,
+      currentAnimation: 'idle'
     };
+    
+    this.addDiagnosticMessage('✓ Player userData initialized', 'success');
     
     // Create physics body (capsule collider as dynamic rigid body)
     if (this.config.usePhysics && this.world) {
@@ -826,20 +1215,27 @@ class Game3D {
    */
   async spawnNewEnemies(observerCount, punisherCount, distorterCount, normalCount = 0) {
     if (!this.assetsManifest || !this.assetsManifest.characters || !this.assetsManifest.characters.enemy_basic) {
+      this.addDiagnosticMessage('❌ No enemy model in manifest', 'error');
       console.error('❌ No enemy model in manifest');
       return;
     }
     
     const enemyData = this.assetsManifest.characters.enemy_basic;
     
+    this.addDiagnosticMessage(`Loading enemy model from ${enemyData.url}...`, 'info');
+    
     // Load enemy GLB model once
     let enemyGltf;
     try {
       enemyGltf = await this.loadGLBModel(enemyData.url, 'Enemy');
     } catch (error) {
+      this.addDiagnosticMessage('❌ Failed to load enemy model, cannot spawn enemies', 'error');
       console.error('❌ Failed to load enemy model, cannot spawn enemies');
       return;
     }
+    
+    const totalEnemies = observerCount + punisherCount + distorterCount + normalCount;
+    this.addDiagnosticMessage(`Spawning ${totalEnemies} enemies...`, 'info');
     
     const spawnEnemy = (type) => {
       const angle = Math.random() * Math.PI * 2;
@@ -1727,7 +2123,7 @@ class Game3D {
    * Update player (with physics-based movement and animations)
    */
   updatePlayer(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.userData) return;
     
     // Update player animation mixer
     if (this.mixer) {
@@ -1882,7 +2278,7 @@ class Game3D {
    * Update enemies with animations
    */
   updateEnemies(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.position) return; // Safety check for player
     
     this.enemies.forEach(enemy => {
       // Update animation mixer
@@ -2016,6 +2412,8 @@ class Game3D {
    * Create enemy projectile
    */
   createEnemyProjectile(enemy) {
+    if (!this.player || !this.player.position) return; // Safety check for player
+    
     const geometry = new THREE.SphereGeometry(0.2);
     const material = new THREE.MeshBasicMaterial({ color: 0xff22ff });
     const projectile = new THREE.Mesh(geometry, material);
@@ -2177,6 +2575,8 @@ class Game3D {
    * Update interactive elements
    */
   updateInteractiveElements(delta) {
+    if (!this.player || !this.player.position || !this.player.userData) return; // Safety check
+    
     // NEW: Check for power-up collection
     if (this.powerUpSystem) {
       const powerUpPickups = this.scene.children.filter(obj => 
@@ -2468,7 +2868,7 @@ class Game3D {
    * Update camera
    */
   updateCamera(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.position) return; // Safety check
     
     // Calculate desired camera position
     const desiredPosition = this.player.position.clone().add(this.cameraOffset);
@@ -2511,10 +2911,15 @@ class Game3D {
         this.world.step(1 / 60, delta, 3);
       }
       
+      // Safety check: ensure player exists before updating
+      if (!this.player) {
+        return; // Skip this frame if player not yet created
+      }
+      
       this.updatePlayer(delta);
       
       // NEW: Record frame data for intent tracking
-      if (this.intentTracker && this.player) {
+      if (this.intentTracker && this.player && this.player.userData && this.player.userData.velocity) {
         const playerData = {
           position: this.player.position,
           velocity: this.player.userData.velocity,

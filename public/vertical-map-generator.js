@@ -395,6 +395,8 @@ class VerticalMapGenerator {
    * Update dynamic map elements
    */
   updateDynamicElements(player, delta) {
+    if (!player || !player.position) return; // Safety check for player
+    
     this.structures.forEach(structure => {
       if (!structure.userData) return;
       
