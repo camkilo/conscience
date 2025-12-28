@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
-    "ramp": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
-    "wall": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ",
-    "platform": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ"
+    "floor": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
+    "ramp": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
+    "wall": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb",
+    "platform": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb"
   },
   "characters": {
     "player": {
-      "url": "https://drive.google.com/uc?export=download&id=1xn59lPcV9uQ70pMZngOCYTQeOqeX5CNA",
+      "url": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_biped%202/Meshy_AI_Character_output.glb",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "https://drive.google.com/uc?export=download&id=1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY",
+      "url": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_biped%204/Meshy_AI_Character_output.glb",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }
