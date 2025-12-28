@@ -1150,14 +1150,17 @@ class Game3D {
       throw new Error('❌ CRITICAL: Failed to load player model - game cannot start');
     }
     
-    // Initialize player userData
+    // Initialize player userData (MUST be done before any update loops)
     this.player.userData = {
-      velocity: new THREE.Vector3(),
+      velocity: new THREE.Vector3(0, 0, 0),
       speed: 10,
       rotation: 0,
       isMoving: false,
-      lastAction: null
+      lastAction: null,
+      currentAnimation: 'idle'
     };
+    
+    this.addDiagnosticMessage('✓ Player userData initialized', 'success');
     
     // Create physics body (capsule collider as dynamic rigid body)
     if (this.config.usePhysics && this.world) {
@@ -2120,7 +2123,7 @@ class Game3D {
    * Update player (with physics-based movement and animations)
    */
   updatePlayer(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.userData) return;
     
     // Update player animation mixer
     if (this.mixer) {
@@ -2902,6 +2905,11 @@ class Game3D {
       // Step physics world
       if (this.world && this.config.usePhysics) {
         this.world.step(1 / 60, delta, 3);
+      }
+      
+      // Safety check: ensure player exists before updating
+      if (!this.player) {
+        return; // Skip this frame if player not yet created
       }
       
       this.updatePlayer(delta);
