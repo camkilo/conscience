@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conscience - 3D Game</title>
     
+    <!--
+    ========================================================================
+    IMPORTANT: CLIENT-SIDE ONLY RENDERING
+    ========================================================================
+    This page MUST be rendered client-side only. It contains:
+    - WebGL rendering (requires browser Canvas API)
+    - GLB file loading via THREE.GLTFLoader (binary-safe, uses ArrayBuffer)
+    - Real-time 3D game engine
+    
+    If using a framework with SSR (Server-Side Rendering):
+    - Mark this component/page as client-only
+    - Use dynamic imports with { ssr: false }
+    - Ensure this route is not pre-rendered
+    
+    GLB Loading Method:
+    - THREE.GLTFLoader fetches GLB files as binary (ArrayBuffer)
+    - Does NOT parse as text or JSON
+    - Binary data is properly decoded according to GLB format spec
+    ========================================================================
+    -->
+    
     <!-- Import map for ES modules -->
     <script type="importmap">
     {
@@ -241,6 +262,14 @@
 
     <!-- Game will be injected here -->
     <script>
+        // ========================================================================
+        // CRITICAL: Client-side execution verification
+        // ========================================================================
+        if (typeof window === 'undefined') {
+            throw new Error('❌ CRITICAL: This script requires browser environment. SSR detected! Game cannot run server-side.');
+        }
+        console.log('✓ Client-side execution confirmed (window exists)');
+        
         // Game3D class will be defined inline since we can't use modules with global THREE
         let game = null;
         let playerId = null;
