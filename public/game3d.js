@@ -309,7 +309,35 @@ class Game3D {
     this.world.solver.iterations = 10;
     this.world.defaultContactMaterial.friction = 0.4;
     
-    console.log('✓ Physics world initialized');
+    // CRITICAL: Add infinite ground plane as fallback to prevent falling through
+    this.createPhysicsGroundPlane();
+    
+    console.log('✓ Physics world initialized with ground plane');
+  }
+  
+  /**
+   * Create infinite physics ground plane (CRITICAL FALLBACK)
+   * This ensures player never falls through the world
+   */
+  createPhysicsGroundPlane() {
+    if (!this.world) return;
+    
+    // Create infinite static plane at y = 0
+    const groundShape = new CANNON.Plane();
+    const groundBody = new CANNON.Body({
+      mass: 0, // Static body
+      shape: groundShape,
+      material: new CANNON.Material({ friction: 0.4, restitution: 0.0 })
+    });
+    
+    // Rotate plane to face upward (plane normal points up Y-axis)
+    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    groundBody.position.set(0, 0, 0);
+    
+    this.world.addBody(groundBody);
+    this.physicsBodies.push(groundBody);
+    
+    console.log('✓ Physics ground plane created at y=0 (infinite, prevents falling)');
   }
   
   /**
@@ -532,6 +560,11 @@ class Game3D {
     this.addDiagnosticMessage('Loading additional environment assets...', 'info');
     await this.loadAdditionalEnvironmentAssets();
     this.addDiagnosticMessage('✓ Additional environment assets loaded', 'success');
+    
+    // NEW: Create additional 3D floor platforms for extensive map
+    this.addDiagnosticMessage('Creating additional 3D floor platforms...', 'info');
+    await this.createAdditional3DFloors();
+    this.addDiagnosticMessage('✓ Additional 3D floors created', 'success');
     
     // Create player with GLB model
     this.addDiagnosticMessage('Loading player model...', 'info');
@@ -809,6 +842,104 @@ class Game3D {
       } catch (error) {
         this.addDiagnosticMessage(`⚠️ Failed to load wall: ${error.message} (non-critical)`, 'warning');
       }
+    }
+  }
+  
+  /**
+   * Create multiple 3D floor platforms at different heights for extensive map
+   */
+  async createAdditional3DFloors() {
+    if (!this.assetsManifest || !this.assetsManifest.environment || !this.assetsManifest.environment.floor) {
+      this.addDiagnosticMessage('⚠️ No floor asset available for additional platforms', 'warning');
+      return;
+    }
+    
+    this.addDiagnosticMessage('Creating additional 3D floor platforms...', 'info');
+    
+    try {
+      const floorUrl = this.assetsManifest.environment.floor;
+      const floorGltf = await this.loadGLBModel(floorUrl, 'Additional Floors');
+      
+      // Define platform configurations (extensive map with multiple levels)
+      const platformConfigs = [
+        // Ground level platforms (y = 0)
+        { x: 30, y: 0, z: 30, scaleX: 1.5, scaleY: 0.1, scaleZ: 1.5, color: 0x5a6f5a },
+        { x: -30, y: 0, z: -30, scaleX: 1.5, scaleY: 0.1, scaleZ: 1.5, color: 0x5a6f5a },
+        { x: 30, y: 0, z: -30, scaleX: 1.5, scaleY: 0.1, scaleZ: 1.5, color: 0x5a6f5a },
+        { x: -30, y: 0, z: 30, scaleX: 1.5, scaleY: 0.1, scaleZ: 1.5, color: 0x5a6f5a },
+        
+        // Elevated platforms (y = 5)
+        { x: 20, y: 5, z: 0, scaleX: 1.2, scaleY: 0.1, scaleZ: 1.2, color: 0x6a7f6a },
+        { x: -20, y: 5, z: 0, scaleX: 1.2, scaleY: 0.1, scaleZ: 1.2, color: 0x6a7f6a },
+        { x: 0, y: 5, z: 20, scaleX: 1.2, scaleY: 0.1, scaleZ: 1.2, color: 0x6a7f6a },
+        { x: 0, y: 5, z: -20, scaleX: 1.2, scaleY: 0.1, scaleZ: 1.2, color: 0x6a7f6a },
+        
+        // High platforms (y = 10)
+        { x: 0, y: 10, z: 0, scaleX: 0.8, scaleY: 0.1, scaleZ: 0.8, color: 0x7a8f7a },
+        { x: 15, y: 10, z: 15, scaleX: 0.6, scaleY: 0.1, scaleZ: 0.6, color: 0x7a8f7a },
+        { x: -15, y: 10, z: -15, scaleX: 0.6, scaleY: 0.1, scaleZ: 0.6, color: 0x7a8f7a },
+        
+        // Very high platforms (y = 15)
+        { x: 10, y: 15, z: -10, scaleX: 0.5, scaleY: 0.1, scaleZ: 0.5, color: 0x8a9f8a },
+        { x: -10, y: 15, z: 10, scaleX: 0.5, scaleY: 0.1, scaleZ: 0.5, color: 0x8a9f8a },
+        
+        // Connecting bridge platforms
+        { x: 0, y: 2, z: 10, scaleX: 0.4, scaleY: 0.05, scaleZ: 2.0, color: 0x6a7f6a },
+        { x: 0, y: 2, z: -10, scaleX: 0.4, scaleY: 0.05, scaleZ: 2.0, color: 0x6a7f6a },
+        { x: 10, y: 7, z: 0, scaleX: 2.0, scaleY: 0.05, scaleZ: 0.4, color: 0x7a8f7a },
+        { x: -10, y: 7, z: 0, scaleX: 2.0, scaleY: 0.05, scaleZ: 0.4, color: 0x7a8f7a }
+      ];
+      
+      // Create each platform
+      platformConfigs.forEach((config, index) => {
+        const platform = floorGltf.scene.clone();
+        platform.position.set(config.x, config.y, config.z);
+        platform.scale.set(config.scaleX, config.scaleY, config.scaleZ);
+        
+        platform.traverse((node) => {
+          if (node.isMesh) {
+            node.receiveShadow = true;
+            node.castShadow = true;
+            
+            // Apply color variation
+            if (node.material) {
+              node.material = node.material.clone();
+              node.material.color.setHex(config.color);
+            }
+            
+            // Create physics collider for platform
+            if (this.world) {
+              try {
+                // Create box collider for platform (more efficient than mesh collider)
+                const halfExtents = new CANNON.Vec3(
+                  config.scaleX * 50, // Assuming base floor is 100 units wide
+                  config.scaleY * 0.25,
+                  config.scaleZ * 50
+                );
+                const boxShape = new CANNON.Box(halfExtents);
+                const platformBody = new CANNON.Body({
+                  mass: 0, // Static
+                  shape: boxShape,
+                  position: new CANNON.Vec3(config.x, config.y, config.z),
+                  material: new CANNON.Material({ friction: 0.4, restitution: 0.0 })
+                });
+                
+                this.world.addBody(platformBody);
+                this.physicsBodies.push(platformBody);
+              } catch (colliderError) {
+                console.warn(`Could not create collider for platform ${index}:`, colliderError.message);
+              }
+            }
+          }
+        });
+        
+        this.scene.add(platform);
+      });
+      
+      this.addDiagnosticMessage(`✓ Created ${platformConfigs.length} additional 3D floor platforms`, 'success');
+      
+    } catch (error) {
+      this.addDiagnosticMessage(`⚠️ Failed to create additional floors: ${error.message} (non-critical)`, 'warning');
     }
   }
   
