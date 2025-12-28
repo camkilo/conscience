@@ -254,13 +254,37 @@ class Game3D {
       padding: 40px;
       text-align: center;
     `;
+    
+    // Detect if error is likely due to ad blocker blocking CDN resources
+    const isLikelyAdBlocker = message.toLowerCase().includes('failed to load') || 
+                               message.toLowerCase().includes('network error') ||
+                               message.toLowerCase().includes('cors');
+    
+    const adBlockerInstructions = isLikelyAdBlocker ? `
+      <div style="margin-top: 30px; padding: 25px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; max-width: 600px; border: 2px solid #ffaa00;">
+        <h2 style="font-size: 24px; margin-bottom: 15px; color: #ffaa00;">⚠️ Ad Blocker Detected?</h2>
+        <p style="font-size: 16px; margin-bottom: 15px; line-height: 1.6;">
+          This error is commonly caused by ad blockers or browser extensions blocking external resources.
+        </p>
+        <div style="text-align: left; font-size: 14px; margin: 20px auto; max-width: 500px;">
+          <p style="margin-bottom: 10px; font-weight: bold;">To fix this issue:</p>
+          <p style="margin-bottom: 8px;">1. <strong>Disable all ad blockers</strong> for this site</p>
+          <p style="margin-bottom: 8px;">2. Or open the game in:</p>
+          <p style="margin-left: 20px; margin-bottom: 5px;">• <strong>Chrome Incognito</strong> (extensions off)</p>
+          <p style="margin-left: 20px; margin-bottom: 15px;">• <strong>Firefox with no addons</strong></p>
+          <p style="margin-bottom: 8px;">3. Then click <strong>Reload</strong> below</p>
+        </div>
+      </div>
+    ` : '';
+    
     errorOverlay.innerHTML = `
       <h1 style="font-size: 48px; margin-bottom: 20px;">❌ CRITICAL ERROR</h1>
       <div style="font-size: 18px; max-width: 800px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px;">
         ${message}
       </div>
       <p style="margin-top: 20px; font-size: 14px;">The game cannot start without proper 3D assets.</p>
-      <button onclick="window.location.reload()" style="margin-top: 20px; padding: 15px 30px; font-size: 16px; background: white; color: red; border: none; border-radius: 5px; cursor: pointer;">Retry</button>
+      ${adBlockerInstructions}
+      <button onclick="window.location.reload()" style="margin-top: 20px; padding: 15px 30px; font-size: 16px; background: white; color: red; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Reload</button>
     `;
     document.body.appendChild(errorOverlay);
   }
