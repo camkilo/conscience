@@ -137,6 +137,7 @@ class EnemySystem {
    */
   updateEnemy(enemy, player, delta, powerUpEffects) {
     if (!enemy || !enemy.userData || enemy.userData.type !== 'enemy') return;
+    if (!enemy.position) return; // Safety check for enemy position
     if (!player || !player.position || !player.userData || !player.userData.velocity) return; // Safety check for player
     
     const now = Date.now() / 1000;
