@@ -2278,7 +2278,7 @@ class Game3D {
    * Update enemies with animations
    */
   updateEnemies(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.position) return; // Safety check for player
     
     this.enemies.forEach(enemy => {
       // Update animation mixer
@@ -2573,6 +2573,8 @@ class Game3D {
    * Update interactive elements
    */
   updateInteractiveElements(delta) {
+    if (!this.player || !this.player.position || !this.player.userData) return; // Safety check
+    
     // NEW: Check for power-up collection
     if (this.powerUpSystem) {
       const powerUpPickups = this.scene.children.filter(obj => 
@@ -2915,7 +2917,7 @@ class Game3D {
       this.updatePlayer(delta);
       
       // NEW: Record frame data for intent tracking
-      if (this.intentTracker && this.player) {
+      if (this.intentTracker && this.player && this.player.userData && this.player.userData.velocity) {
         const playerData = {
           position: this.player.position,
           velocity: this.player.userData.velocity,
