@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
-    "ramp": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb",
-    "wall": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb",
-    "platform": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb"
+    "floor": "/assets/floor.glb",
+    "ramp": "/assets/ramp.glb",
+    "wall": "/assets/floor.glb",
+    "platform": "/assets/floor.glb"
   },
   "characters": {
     "player": {
-      "url": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_biped%202/Meshy_AI_Character_output.glb",
+      "url": "/assets/player.glb",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "https://pub-c745ad71db15417ea1983915be4c9ad9.r2.dev/Meshy_AI_biped%204/Meshy_AI_Character_output.glb",
+      "url": "/assets/enemy.glb",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }
