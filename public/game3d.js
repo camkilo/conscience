@@ -64,8 +64,8 @@ class Game3D {
     
     // Configuration
     this.config = {
-      meshyCharacterPath: '/assets/Meshy_AI_Character_output.glb',
-      playerModelPath: '/assets/Meshy_AI_Character_output.glb',
+      meshyCharacterPath: 'https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb',
+      playerModelPath: 'https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb',
       usePhysics: true
     };
     
