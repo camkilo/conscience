@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "https://drive.google.com/file/d/1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY/view?usp=drive_link",
-    "ramp": "https://drive.google.com/file/d/1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY/view?usp=drive_link",
-    "wall": "https://drive.google.com/file/d/1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ/view?usp=drive_link",
-    "platform": "https://drive.google.com/file/d/1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ/view?usp=drive_link"
+    "floor": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
+    "ramp": "https://drive.google.com/uc?export=download&id=1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY",
+    "wall": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ",
+    "platform": "https://drive.google.com/uc?export=download&id=1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ"
   },
   "characters": {
     "player": {
-      "url": "https://drive.google.com/file/d/1xn59lPcV9uQ70pMZngOCYTQeOqeX5CNA/view?usp=drive_link",
+      "url": "https://drive.google.com/uc?export=download&id=1xn59lPcV9uQ70pMZngOCYTQeOqeX5CNA",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "https://drive.google.com/file/d/1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY/view?usp=drive_link",
+      "url": "https://drive.google.com/uc?export=download&id=1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }
