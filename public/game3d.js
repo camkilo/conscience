@@ -1599,10 +1599,20 @@ class Game3D {
         speed: 3,
         mixer: enemyMixer,
         animations: enemyAnimations,
-        state: 'idle',
+        state: 'patrol', // Changed from 'idle' to 'patrol' for EnemySystem compatibility
+        attackState: 'idle', // Required by EnemySystem
+        attackWindupStartTime: 0,
+        attackStartTime: 0,
+        lastAttackTime: 0,
         attackCooldown: 0,
         attackRange: 4,
         detectionRange: 25,
+        // Generate patrol target for EnemySystem
+        patrolTarget: new THREE.Vector3(
+          position.x + (Math.random() - 0.5) * 20,
+          position.y,
+          position.z + (Math.random() - 0.5) * 20
+        ),
         // Add definition property for EnemySystem compatibility
         definition: {
           detectionRange: 25,
