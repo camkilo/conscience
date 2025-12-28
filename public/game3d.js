@@ -1,10 +1,29 @@
 /**
  * 3D Game Engine using Three.js
  * Full-screen WebGL canvas with HUD, controls, camera, and visual effects
+ * 
+ * IMPORTANT: This module MUST run in browser (client-side) only.
+ * GLB files are loaded using THREE.GLTFLoader which uses binary-safe fetch (arrayBuffer).
+ * DO NOT attempt to run this on server-side or in SSR context.
  */
 
 (function() {
   'use strict';
+  
+  // CRITICAL: Verify client-side execution environment
+  if (typeof window === 'undefined') {
+    throw new Error('❌ CRITICAL: game3d.js requires browser environment (window). This file cannot run server-side or in SSR. Mark as client-only or use dynamic import with { ssr: false }.');
+  }
+  
+  // Verify THREE is available
+  if (typeof window.THREE === 'undefined') {
+    throw new Error('❌ CRITICAL: THREE.js not loaded. game3d.js requires THREE in global scope.');
+  }
+  
+  console.log('=== GAME3D.JS MODULE LOADING ===');
+  console.log('✓ Client-side environment confirmed (window exists)');
+  console.log('✓ THREE.js available in global scope');
+  console.log('✓ GLB loading will use binary-safe THREE.GLTFLoader (fetch as arrayBuffer)');
   
   // Access THREE from global scope
   const THREE = window.THREE;
@@ -153,6 +172,13 @@ class Game3D {
    * Wait for GLTFLoader and CANNON to be loaded
    */
   async waitForDependencies() {
+    // CRITICAL: Verify we're running in browser environment
+    if (typeof window === 'undefined') {
+      throw new Error('❌ CRITICAL: GLB loading can only run in browser (client-side). SSR detected - this code should not run on server.');
+    }
+    
+    console.log('✓ Running in browser environment (window exists)');
+    
     const maxWait = 5000; // 5 seconds timeout
     const startTime = Date.now();
     
@@ -168,8 +194,9 @@ class Game3D {
       console.log('✓ CANNON physics ready');
     }
     if (window.THREE.GLTFLoader) {
-      console.log('✓ GLTFLoader ready');
+      console.log('✓ GLTFLoader ready (binary-safe THREE.js loader)');
       this.gltfLoader = new window.THREE.GLTFLoader();
+      console.log('✓ GLTFLoader uses native binary loading (arrayBuffer) - NOT text/JSON parsing');
     }
   }
   
@@ -191,14 +218,45 @@ class Game3D {
   
   /**
    * Load a GLB model from URL with proper error handling and logging
+   * IMPORTANT: This uses THREE.GLTFLoader which internally fetches as arrayBuffer (binary-safe)
    */
   async loadGLBModel(url, modelName) {
+    // Verify client-side execution
+    if (typeof window === 'undefined') {
+      throw new Error('❌ CRITICAL: GLB loading MUST run client-side only. Server-side execution detected!');
+    }
+    
     if (!this.gltfLoader) {
       throw new Error('❌ GLTFLoader not available - cannot load ' + modelName);
     }
     
+    console.log(`📦 [GLB LOADER] Starting load for: ${modelName}`);
+    console.log(`📦 [GLB LOADER] URL: ${url}`);
+    console.log(`📦 [GLB LOADER] Client-side execution: ✓ (window exists)`);
+    console.log(`📦 [GLB LOADER] THREE.GLTFLoader will fetch as binary (arrayBuffer) - NOT text/JSON`);
+    
+    // First, verify URL is accessible with a HEAD request
+    try {
+      const headResponse = await fetch(url, { method: 'HEAD' });
+      if (!headResponse.ok) {
+        throw new Error(`URL returned ${headResponse.status} ${headResponse.statusText}`);
+      }
+      const contentLength = headResponse.headers.get('content-length');
+      console.log(`📦 [GLB LOADER] URL is reachable ✓`);
+      if (contentLength) {
+        console.log(`📦 [GLB LOADER] Expected file size: ${contentLength} bytes`);
+      }
+    } catch (fetchError) {
+      const errorMsg = `❌ URL NOT REACHABLE: ${url}\nNetwork Error: ${fetchError.message}\nThis is a NETWORK/URL issue, not a parsing issue.`;
+      console.error(errorMsg);
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(errorMsg, 'error');
+      }
+      this.showCriticalError(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     return new Promise((resolve, reject) => {
-      console.log(`📦 Loading ${modelName} from: ${url}`);
       if (this.diagnosticMessages) {
         this.addDiagnosticMessage(`📦 Loading ${modelName}...`, 'info');
       }
@@ -206,21 +264,45 @@ class Game3D {
       this.gltfLoader.load(
         url,
         (gltf) => {
-          console.log(`✓ ${modelName} loaded successfully`);
+          // Verify binary data was loaded
+          console.log(`✓ [GLB LOADER] ${modelName} loaded successfully`);
+          console.log(`✓ [GLB LOADER] Binary data parsed correctly (GLB format)`);
+          
+          if (gltf.scene) {
+            console.log(`✓ [GLB LOADER] Scene graph extracted from binary GLB`);
+          }
+          
           if (this.diagnosticMessages) {
             this.addDiagnosticMessage(`✓ ${modelName} loaded successfully`, 'success');
           }
           resolve(gltf);
         },
         (progress) => {
-          if (progress.total > 0) {
-            const percent = (progress.loaded / progress.total * 100).toFixed(0);
-            console.log(`Loading ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
+          if (progress.loaded !== undefined) {
+            console.log(`📦 [GLB LOADER] ${modelName}: ${progress.loaded} bytes loaded`);
+            
+            // Verify byte length > 0
+            if (progress.loaded === 0) {
+              console.warn(`⚠️ [GLB LOADER] Warning: 0 bytes loaded so far for ${modelName}`);
+            }
+            
+            if (progress.total > 0) {
+              const percent = (progress.loaded / progress.total * 100).toFixed(0);
+              console.log(`📦 [GLB LOADER] ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
+              
+              // Confirm byte length > 0 before parsing
+              if (progress.loaded > 0 && percent === '100') {
+                console.log(`✓ [GLB LOADER] Binary download complete: ${progress.loaded} bytes (length > 0 confirmed)`);
+              }
+            }
           }
         },
         (error) => {
-          const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
+          // This error is for LOADING/PARSING failures, not network failures
+          const errorMsg = `❌ BINARY LOAD FAILED for ${modelName}\nURL: ${url}\nError Type: ${error.name || 'Unknown'}\nError Message: ${error.message}\n\nThis indicates the file was fetched but failed to parse as valid GLB binary data.\nThe URL is reachable, but the binary content is invalid or corrupted.`;
           console.error(errorMsg);
+          console.error('Full error object:', error);
+          
           if (this.diagnosticMessages) {
             this.addDiagnosticMessage(errorMsg, 'error');
           }
@@ -377,9 +459,19 @@ class Game3D {
    */
   async init() {
     try {
+      // CRITICAL CHECK: Ensure client-side execution
+      if (typeof window === 'undefined') {
+        throw new Error('❌ CRITICAL: Game3D can only run in browser (client-side). Server-side rendering (SSR) detected. This code must be marked as client-only or wrapped in dynamic import with { ssr: false }.');
+      }
+      
+      console.log('=== CONSCIENCE 3D GAME INITIALIZATION ===');
+      console.log('✓ Client-side execution confirmed (window exists)');
+      console.log('✓ All GLB loading will be done in browser using binary-safe loaders');
+      
       // Create diagnostic overlay FIRST
       this.createDiagnosticOverlay();
       this.addDiagnosticMessage('Starting game initialization...', 'info');
+      this.addDiagnosticMessage('✓ Client-side execution (browser runtime)', 'success');
       
       // Wait for GLTFLoader and CANNON to be available
       this.addDiagnosticMessage('Waiting for dependencies (GLTFLoader, CANNON)...', 'info');
