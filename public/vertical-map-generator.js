@@ -4,20 +4,29 @@
  */
 
 class VerticalMapGenerator {
-  constructor(scene) {
+  constructor(scene, assetsManifest, gltfLoader) {
     this.scene = scene;
+    this.assetsManifest = assetsManifest;
+    this.gltfLoader = gltfLoader;
     this.zones = [];
     this.structures = [];
+    this.loadedModels = {}; // Cache for loaded GLB models
   }
   
   /**
-   * Generate complete vertical map with behavior zones
+   * Generate complete vertical map with behavior zones using GLB assets
    */
-  generateMap() {
+  async generateMap() {
     const THREE = window.THREE;
     
     // Clear existing structures
     this.clearMap();
+    
+    // Ensure we have the GLB models loaded (passed from Game3D)
+    if (!this.loadedModels.platform || !this.loadedModels.ramp || !this.loadedModels.wall) {
+      console.warn('⚠️ Map generation skipped - GLB models not provided');
+      return this.zones;
+    }
     
     // Define behavior zones (each tests a specific player instinct)
     const zoneDefinitions = [
@@ -73,196 +82,227 @@ class VerticalMapGenerator {
       }
     ];
     
-    // Create zones
+    // Create zones using GLB models
     zoneDefinitions.forEach(zoneDef => {
       this.createBehaviorZone(zoneDef);
     });
     
-    // Connect zones with ramps and bridges
+    // Connect zones with ramps from GLB models
     this.connectZones(zoneDefinitions);
-    
-    // Add elevators
-    this.createElevator(new THREE.Vector3(-10, 0, 0), 15);
-    this.createElevator(new THREE.Vector3(10, 0, 0), 12);
-    
-    // Add collapsible platforms in high-stress zones
-    this.createCollapsiblePlatforms();
     
     return this.zones;
   }
   
   /**
-   * Create a behavior zone
+   * Set loaded GLB models for map generation
+   */
+  setLoadedModels(models) {
+    this.loadedModels = models;
+  }
+  
+  /**
+   * Create a behavior zone using GLB platform models
    */
   createBehaviorZone(zoneDef) {
     const THREE = window.THREE;
     
-    // Main platform
-    const platformGeometry = new THREE.BoxGeometry(zoneDef.size, 1, zoneDef.size);
-    const platformMaterial = new THREE.MeshStandardMaterial({ 
-      color: zoneDef.color,
-      roughness: 0.7,
-      metalness: 0.3,
-      emissive: zoneDef.color,
-      emissiveIntensity: 0.1
-    });
-    
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(zoneDef.centerX, zoneDef.heightLevel, zoneDef.centerZ);
-    platform.castShadow = true;
-    platform.receiveShadow = true;
-    
-    platform.userData = {
-      type: 'behaviorZone',
-      zoneName: zoneDef.name,
-      behavior: zoneDef.behavior,
-      bounds: {
-        minX: zoneDef.centerX - zoneDef.size / 2,
-        maxX: zoneDef.centerX + zoneDef.size / 2,
-        minZ: zoneDef.centerZ - zoneDef.size / 2,
-        maxZ: zoneDef.centerZ + zoneDef.size / 2,
-        y: zoneDef.heightLevel
-      }
-    };
-    
-    this.scene.add(platform);
-    this.zones.push(platform);
-    
-    // Add zone-specific structures
-    this.addZoneStructures(zoneDef, platform);
-    
-    // Add zone marker (floating text would be ideal, but we'll use a pillar)
-    const markerGeometry = new THREE.CylinderGeometry(0.5, 0.5, 3, 8);
-    const markerMaterial = new THREE.MeshBasicMaterial({ 
-      color: zoneDef.color,
-      transparent: true,
-      opacity: 0.6
-    });
-    const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-    marker.position.set(zoneDef.centerX, zoneDef.heightLevel + 3, zoneDef.centerZ);
-    this.scene.add(marker);
-    this.structures.push(marker);
+    // Create main platform using GLB model
+    if (this.loadedModels.platform) {
+      const platform = this.loadedModels.platform.clone();
+      platform.position.set(zoneDef.centerX, zoneDef.heightLevel, zoneDef.centerZ);
+      
+      // Scale platform to match zone size
+      const baseSize = 5; // Assume base model is about 5 units
+      const scale = zoneDef.size / baseSize;
+      platform.scale.set(scale, 1, scale);
+      
+      platform.traverse((node) => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          // Tint the material to match zone color
+          if (node.material) {
+            const originalMaterial = node.material.clone();
+            originalMaterial.emissive = new THREE.Color(zoneDef.color);
+            originalMaterial.emissiveIntensity = 0.1;
+            node.material = originalMaterial;
+          }
+        }
+      });
+      
+      platform.userData = {
+        type: 'behaviorZone',
+        zoneName: zoneDef.name,
+        behavior: zoneDef.behavior,
+        bounds: {
+          minX: zoneDef.centerX - zoneDef.size / 2,
+          maxX: zoneDef.centerX + zoneDef.size / 2,
+          minZ: zoneDef.centerZ - zoneDef.size / 2,
+          maxZ: zoneDef.centerZ + zoneDef.size / 2,
+          y: zoneDef.heightLevel
+        }
+      };
+      
+      this.scene.add(platform);
+      this.zones.push(platform);
+      
+      // Add zone-specific structures using GLB models
+      this.addZoneStructures(zoneDef, platform);
+    } else {
+      console.warn(`⚠️ Cannot create zone ${zoneDef.name} - platform GLB model not loaded`);
+    }
   }
   
   /**
-   * Add structures specific to zone behavior
+   * Add structures specific to zone behavior using GLB models
    */
   addZoneStructures(zoneDef, platform) {
     const THREE = window.THREE;
     
     switch (zoneDef.behavior) {
       case 'rewards_aggression':
-        // Add cover blocks for tactical combat
-        for (let i = 0; i < 5; i++) {
-          const coverGeometry = new THREE.BoxGeometry(2, 2, 2);
-          const coverMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
-          const cover = new THREE.Mesh(coverGeometry, coverMaterial);
-          cover.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.7,
-            zoneDef.heightLevel + 1.5,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.7
-          );
-          cover.castShadow = true;
-          cover.receiveShadow = true;
-          this.scene.add(cover);
-          this.structures.push(cover);
+        // Add cover blocks using wall GLB models
+        if (this.loadedModels.wall) {
+          for (let i = 0; i < 5; i++) {
+            const cover = this.loadedModels.wall.clone();
+            cover.position.set(
+              zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.7,
+              zoneDef.heightLevel + 1.5,
+              zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.7
+            );
+            cover.scale.set(0.5, 0.5, 0.5); // Smaller for cover
+            cover.traverse((node) => {
+              if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+              }
+            });
+            this.scene.add(cover);
+            this.structures.push(cover);
+          }
         }
         break;
         
       case 'requires_precision':
-        // Add narrow platforms that require precise jumping
-        for (let i = 0; i < 4; i++) {
-          const narrowGeometry = new THREE.BoxGeometry(3, 0.5, 1);
-          const narrowMaterial = new THREE.MeshStandardMaterial({ color: zoneDef.color });
-          const narrow = new THREE.Mesh(narrowGeometry, narrowMaterial);
-          narrow.position.set(
-            zoneDef.centerX + (i - 2) * 4,
-            zoneDef.heightLevel + 2 + Math.random() * 2,
-            zoneDef.centerZ
-          );
-          narrow.castShadow = true;
-          narrow.receiveShadow = true;
-          this.scene.add(narrow);
-          this.structures.push(narrow);
+        // Add narrow platforms using platform GLB models
+        if (this.loadedModels.platform) {
+          for (let i = 0; i < 4; i++) {
+            const narrow = this.loadedModels.platform.clone();
+            narrow.position.set(
+              zoneDef.centerX + (i - 2) * 4,
+              zoneDef.heightLevel + 2 + Math.random() * 2,
+              zoneDef.centerZ
+            );
+            narrow.scale.set(0.6, 0.1, 0.2); // Narrow and thin
+            narrow.traverse((node) => {
+              if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+              }
+            });
+            this.scene.add(narrow);
+            this.structures.push(narrow);
+          }
         }
         break;
         
       case 'tests_evasion':
-        // Add maze walls
-        const wallPositions = [
-          [0, 5], [5, 0], [-5, 0], [0, -5],
-          [5, 5], [-5, 5], [5, -5], [-5, -5]
-        ];
-        wallPositions.forEach(([dx, dz]) => {
-          const wallGeometry = new THREE.BoxGeometry(2, 4, 8);
-          const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x336633 });
-          const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-          wall.position.set(
-            zoneDef.centerX + dx,
-            zoneDef.heightLevel + 2,
-            zoneDef.centerZ + dz
-          );
-          wall.castShadow = true;
-          wall.receiveShadow = true;
-          this.scene.add(wall);
-          this.structures.push(wall);
-        });
+        // Add maze walls using wall GLB models
+        if (this.loadedModels.wall) {
+          const wallPositions = [
+            [0, 5], [5, 0], [-5, 0], [0, -5],
+            [5, 5], [-5, 5], [5, -5], [-5, -5]
+          ];
+          wallPositions.forEach(([dx, dz]) => {
+            const wall = this.loadedModels.wall.clone();
+            wall.position.set(
+              zoneDef.centerX + dx,
+              zoneDef.heightLevel + 2,
+              zoneDef.centerZ + dz
+            );
+            wall.scale.set(0.4, 1, 1.6);
+            wall.traverse((node) => {
+              if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+              }
+            });
+            this.scene.add(wall);
+            this.structures.push(wall);
+          });
+        }
         break;
         
       case 'tempts_greed':
-        // Add pillars with glowing tops (power-up spawns)
-        for (let i = 0; i < 3; i++) {
-          const pillarGeometry = new THREE.CylinderGeometry(0.8, 0.8, 5, 8);
-          const pillarMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x886644,
-            emissive: 0xffaa00,
-            emissiveIntensity: 0.3
-          });
-          const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-          pillar.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.6,
-            zoneDef.heightLevel + 2.5,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.6
-          );
-          pillar.castShadow = true;
-          pillar.receiveShadow = true;
-          pillar.userData = { type: 'powerUpSpawn' };
-          this.scene.add(pillar);
-          this.structures.push(pillar);
+        // Add pillars using wall GLB models (rotated to be vertical)
+        if (this.loadedModels.wall) {
+          for (let i = 0; i < 3; i++) {
+            const pillar = this.loadedModels.wall.clone();
+            pillar.position.set(
+              zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.6,
+              zoneDef.heightLevel + 2.5,
+              zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.6
+            );
+            pillar.scale.set(0.3, 1.5, 0.3);
+            pillar.traverse((node) => {
+              if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                // Add glowing emissive for power-up pillars
+                if (node.material) {
+                  const material = node.material.clone();
+                  material.emissive = new THREE.Color(0xffaa00);
+                  material.emissiveIntensity = 0.3;
+                  node.material = material;
+                }
+              }
+            });
+            pillar.userData = { type: 'powerUpSpawn' };
+            this.scene.add(pillar);
+            this.structures.push(pillar);
+          }
         }
         break;
         
       case 'induces_panic':
-        // Add unstable platforms (will be made collapsible)
-        for (let i = 0; i < 6; i++) {
-          const unstableGeometry = new THREE.BoxGeometry(3, 0.3, 3);
-          const unstableMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x664444,
-            transparent: true,
-            opacity: 0.8
-          });
-          const unstable = new THREE.Mesh(unstableGeometry, unstableMaterial);
-          unstable.position.set(
-            zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.8,
-            zoneDef.heightLevel + 1,
-            zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.8
-          );
-          unstable.castShadow = true;
-          unstable.receiveShadow = true;
-          unstable.userData = { 
-            type: 'collapsible',
-            triggerDelay: 1.0, // Collapses after 1 second of player standing on it
-            lastTriggerTime: 0
-          };
-          this.scene.add(unstable);
-          this.structures.push(unstable);
+        // Add unstable platforms using platform GLB models
+        if (this.loadedModels.platform) {
+          for (let i = 0; i < 6; i++) {
+            const unstable = this.loadedModels.platform.clone();
+            unstable.position.set(
+              zoneDef.centerX + (Math.random() - 0.5) * zoneDef.size * 0.8,
+              zoneDef.heightLevel + 1,
+              zoneDef.centerZ + (Math.random() - 0.5) * zoneDef.size * 0.8
+            );
+            unstable.scale.set(0.6, 0.06, 0.6);
+            unstable.traverse((node) => {
+              if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                // Make transparent to show instability
+                if (node.material) {
+                  const material = node.material.clone();
+                  material.transparent = true;
+                  material.opacity = 0.8;
+                  node.material = material;
+                }
+              }
+            });
+            unstable.userData = { 
+              type: 'collapsiblePlatform',
+              timeUntilCollapse: 2,
+              collapsed: false
+            };
+            this.scene.add(unstable);
+            this.structures.push(unstable);
+          }
         }
         break;
     }
   }
   
   /**
-   * Connect zones with ramps and bridges
+   * Connect zones with ramps and bridges using GLB models
    */
   connectZones(zoneDefs) {
     const THREE = window.THREE;
@@ -289,10 +329,15 @@ class VerticalMapGenerator {
   }
   
   /**
-   * Create ramp between zones
+   * Create ramp between zones using GLB ramp model
    */
   createRamp(zoneA, zoneB) {
     const THREE = window.THREE;
+    
+    if (!this.loadedModels.ramp) {
+      console.warn('⚠️ Cannot create ramp - ramp GLB model not loaded');
+      return;
+    }
     
     const startPos = new THREE.Vector3(zoneA.centerX, zoneA.heightLevel, zoneA.centerZ);
     const endPos = new THREE.Vector3(zoneB.centerX, zoneB.heightLevel, zoneB.centerZ);
@@ -301,28 +346,36 @@ class VerticalMapGenerator {
     const distance = startPos.distanceTo(endPos);
     const angle = Math.atan2(endPos.z - startPos.z, endPos.x - startPos.x);
     
-    const rampGeometry = new THREE.BoxGeometry(distance, 0.5, 4);
-    const rampMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x665544,
-      roughness: 0.8
-    });
-    
-    const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
+    const ramp = this.loadedModels.ramp.clone();
     ramp.position.copy(midPoint);
     ramp.rotation.y = angle;
-    ramp.rotation.z = Math.atan2(endPos.y - startPos.y, distance);
-    ramp.castShadow = true;
-    ramp.receiveShadow = true;
+    ramp.rotation.z = Math.atan2(endPos.y - startPos.y, distance * 0.5);
+    
+    // Scale ramp to fit distance
+    const baseLength = 5; // Assume base ramp is about 5 units
+    ramp.scale.set(distance / baseLength, 1, 0.8);
+    
+    ramp.traverse((node) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
     
     this.scene.add(ramp);
     this.structures.push(ramp);
   }
   
   /**
-   * Create bridge between zones
+   * Create bridge between zones using GLB platform model
    */
   createBridge(zoneA, zoneB) {
     const THREE = window.THREE;
+    
+    if (!this.loadedModels.platform) {
+      console.warn('⚠️ Cannot create bridge - platform GLB model not loaded');
+      return;
+    }
     
     const startPos = new THREE.Vector3(zoneA.centerX, zoneA.heightLevel + 0.5, zoneA.centerZ);
     const endPos = new THREE.Vector3(zoneB.centerX, zoneB.heightLevel + 0.5, zoneB.centerZ);
@@ -331,17 +384,20 @@ class VerticalMapGenerator {
     const distance = startPos.distanceTo(endPos);
     const angle = Math.atan2(endPos.z - startPos.z, endPos.x - startPos.x);
     
-    const bridgeGeometry = new THREE.BoxGeometry(distance, 0.3, 3);
-    const bridgeMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x553322,
-      roughness: 0.9
-    });
-    
-    const bridge = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
+    const bridge = this.loadedModels.platform.clone();
     bridge.position.copy(midPoint);
     bridge.rotation.y = angle;
-    bridge.castShadow = true;
-    bridge.receiveShadow = true;
+    
+    // Scale bridge to fit distance
+    const baseLength = 5; // Assume base platform is about 5 units
+    bridge.scale.set(distance / baseLength, 0.1, 0.6);
+    
+    bridge.traverse((node) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
     
     this.scene.add(bridge);
     this.structures.push(bridge);
