@@ -1,17 +1,17 @@
 {
   "environment": {
-    "floor": "/assets/floor.glb",
-    "ramp": "/assets/ramp.glb",
-    "wall": "/assets/ramp.glb",
-    "platform": "/assets/floor.glb"
+    "floor": "https://drive.google.com/file/d/1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY/view?usp=drive_link",
+    "ramp": "https://drive.google.com/file/d/1XUKKQJ2_WIVgs_jHwdDYr_1K1uZShCtY/view?usp=drive_link",
+    "wall": "https://drive.google.com/file/d/1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ/view?usp=drive_link",
+    "platform": "https://drive.google.com/file/d/1IiRGuQVzechBxfFtLYTM5Z3mX37ouRtZ/view?usp=drive_link"
   },
   "characters": {
     "player": {
-      "url": "/assets/player.glb",
+      "url": "https://drive.google.com/file/d/1xn59lPcV9uQ70pMZngOCYTQeOqeX5CNA/view?usp=drive_link",
       "animations": ["idle", "run", "jump", "attack"]
     },
     "enemy_basic": {
-      "url": "/assets/enemy.glb",
+      "url": "https://drive.google.com/file/d/1JmaYprtK_85jyOn0gjao7HWsSfqyHfsY/view?usp=drive_link",
       "animations": ["idle", "walk", "attack", "death"]
     }
   }
