@@ -2864,7 +2864,7 @@ class Game3D {
    * Update camera
    */
   updateCamera(delta) {
-    if (this.paused) return;
+    if (this.paused || !this.player || !this.player.position) return; // Safety check
     
     // Calculate desired camera position
     const desiredPosition = this.player.position.clone().add(this.cameraOffset);

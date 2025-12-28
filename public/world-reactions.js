@@ -308,6 +308,7 @@ class WorldReactions {
    * Update all world reactions
    */
   update(player, enemies, delta) {
+    if (!player || !player.position) return; // Safety check for player
     this.updatePlatforms(player, enemies, delta);
     this.updateSpikes(player, enemies, delta);
   }
