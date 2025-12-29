@@ -197,6 +197,24 @@ class Game3D {
       throw new Error('❌ GLTFLoader not available - cannot load ' + modelName);
     }
     
+    // First, verify the URL is accessible with a HEAD request
+    try {
+      console.log(`📦 Verifying ${modelName} URL: ${url}`);
+      const headResponse = await fetch(url, { method: 'HEAD' });
+      if (!headResponse.ok) {
+        throw new Error(`HTTP ${headResponse.status}: ${headResponse.statusText}`);
+      }
+      const contentType = headResponse.headers.get('Content-Type');
+      console.log(`✓ URL accessible, Content-Type: ${contentType || 'not set'}`);
+    } catch (fetchError) {
+      const errorMsg = `❌ Cannot access ${modelName} at ${url}: ${fetchError.message}`;
+      console.error(errorMsg);
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(errorMsg, 'error');
+      }
+      throw new Error(errorMsg);
+    }
+    
     return new Promise((resolve, reject) => {
       console.log(`📦 Loading ${modelName} from: ${url}`);
       if (this.diagnosticMessages) {
@@ -216,15 +234,32 @@ class Game3D {
           if (progress.total > 0) {
             const percent = (progress.loaded / progress.total * 100).toFixed(0);
             console.log(`Loading ${modelName}: ${percent}% (${progress.loaded}/${progress.total} bytes)`);
+          } else if (progress.loaded > 0) {
+            console.log(`Loading ${modelName}: ${progress.loaded} bytes downloaded`);
           }
         },
         (error) => {
-          const errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}: ${error.message}`;
-          console.error(errorMsg);
+          let errorMsg = `❌ FAILED TO LOAD ${modelName} from ${url}`;
+          if (error.message) {
+            errorMsg += `: ${error.message}`;
+          }
+          if (error.target && error.target.status) {
+            errorMsg += ` (HTTP ${error.target.status})`;
+          }
+          
+          console.error(errorMsg, error);
           if (this.diagnosticMessages) {
             this.addDiagnosticMessage(errorMsg, 'error');
           }
-          // Don't show critical error overlay - let caller handle fallback
+          
+          // Provide helpful debugging information
+          console.error('Debug info:', {
+            url: url,
+            loaderType: 'GLTFLoader',
+            errorType: error.constructor.name,
+            fullError: error
+          });
+          
           reject(new Error(errorMsg));
         }
       );
