@@ -469,7 +469,7 @@ class VerticalMapGenerator {
       
       // Synchronize physics body if exists
       if (elevator.userData.physicsBody) {
-        elevator.userData.physicsBody.position.y = userData.currentY;
+        elevator.userData.physicsBody.position.copy(elevator.position);
       }
     }
   }
@@ -502,6 +502,11 @@ class VerticalMapGenerator {
         if (userData.physicsBody && !userData.physicsBodyRemoved) {
           if (this.world) {
             this.world.removeBody(userData.physicsBody);
+            // Remove from tracking array to prevent memory leaks
+            const index = this.physicsBodies.indexOf(userData.physicsBody);
+            if (index > -1) {
+              this.physicsBodies.splice(index, 1);
+            }
           }
           userData.physicsBodyRemoved = true;
         }
