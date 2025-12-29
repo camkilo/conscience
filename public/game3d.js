@@ -50,7 +50,7 @@ class Game3D {
     // Movement physics configuration (force-based)
     this.physics = {
       moveForce: 30,      // Force applied for movement
-      maxSpeed: 10,       // Maximum velocity (increased for better gameplay)
+      maxSpeed: 10,       // Maximum velocity
       jumpForce: 15,      // Jump force
       damping: 0.9        // Linear damping for friction
     };
@@ -634,7 +634,7 @@ class Game3D {
     
     // Create initial enemies with GLB models
     this.addDiagnosticMessage('Spawning enemies...', 'info');
-    await this.spawnNewEnemies(4, 3, 2, 0); // 4 Observers, 3 Punishers, 2 Distorters for more action
+    await this.spawnNewEnemies(4, 3, 2, 0); // 4 Observers, 3 Punishers, 2 Distorters
     this.addDiagnosticMessage('✓ Enemies spawned successfully', 'success');
     
     // Create HUD
@@ -2064,8 +2064,9 @@ class Game3D {
    * Perform attack
    */
   performAttack() {
-    const attackRange = 8; // Increased range for better gameplay
-    const attackDamage = 35; // Increased damage for more effective combat
+    const attackRange = 8;
+    const attackDamage = 35;
+    const baseScoreReward = 100;
     
     let enemiesHit = 0;
     
@@ -2096,14 +2097,14 @@ class Game3D {
           this.comboTimer = 3; // 3 seconds to keep combo
           this.scoreMultiplier = Math.min(5, 1 + (this.comboCounter * 0.5));
           
-          const scoreGain = Math.floor(100 * this.scoreMultiplier);
+          const scoreGain = Math.floor(baseScoreReward * this.scoreMultiplier);
           this.playerScore += scoreGain;
           this.updateScore();
           
           if (this.comboCounter > 1) {
             this.showNotification(`COMBO x${this.comboCounter}! +${scoreGain} Score!`, 'ability');
           } else {
-            this.showNotification('+100 Score!', 'info');
+            this.showNotification(`+${scoreGain} Score!`, 'info');
           }
         }
       }
