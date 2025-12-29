@@ -4,10 +4,12 @@
  */
 
 class VerticalMapGenerator {
-  constructor(scene) {
+  constructor(scene, world = null) {
     this.scene = scene;
+    this.world = world; // CANNON physics world (optional)
     this.zones = [];
     this.structures = [];
+    this.physicsBodies = []; // Track physics bodies for cleanup
   }
   
   /**
@@ -128,6 +130,9 @@ class VerticalMapGenerator {
     this.scene.add(platform);
     this.zones.push(platform);
     
+    // Add physics collider for platform
+    this.createPhysicsBox(platform, zoneDef.size, 1, zoneDef.size);
+    
     // Add zone-specific structures
     this.addZoneStructures(zoneDef, platform);
     
@@ -166,6 +171,8 @@ class VerticalMapGenerator {
           cover.receiveShadow = true;
           this.scene.add(cover);
           this.structures.push(cover);
+          // Add physics collider
+          this.createPhysicsBox(cover, 2, 2, 2);
         }
         break;
         
@@ -184,6 +191,8 @@ class VerticalMapGenerator {
           narrow.receiveShadow = true;
           this.scene.add(narrow);
           this.structures.push(narrow);
+          // Add physics collider
+          this.createPhysicsBox(narrow, 3, 0.5, 1);
         }
         break;
         
@@ -206,6 +215,8 @@ class VerticalMapGenerator {
           wall.receiveShadow = true;
           this.scene.add(wall);
           this.structures.push(wall);
+          // Add physics collider
+          this.createPhysicsBox(wall, 2, 4, 8);
         });
         break;
         
@@ -229,6 +240,8 @@ class VerticalMapGenerator {
           pillar.userData = { type: 'powerUpSpawn' };
           this.scene.add(pillar);
           this.structures.push(pillar);
+          // Add physics collider
+          this.createPhysicsCylinder(pillar, 0.8, 5);
         }
         break;
         
@@ -256,6 +269,8 @@ class VerticalMapGenerator {
           };
           this.scene.add(unstable);
           this.structures.push(unstable);
+          // Add physics collider (will be removed when platform collapses)
+          this.createPhysicsBox(unstable, 3, 0.3, 3);
         }
         break;
     }
@@ -316,6 +331,9 @@ class VerticalMapGenerator {
     
     this.scene.add(ramp);
     this.structures.push(ramp);
+    
+    // Add physics collider for ramp
+    this.createPhysicsBox(ramp, distance, 0.5, 4);
   }
   
   /**
@@ -345,6 +363,9 @@ class VerticalMapGenerator {
     
     this.scene.add(bridge);
     this.structures.push(bridge);
+    
+    // Add physics collider for bridge
+    this.createPhysicsBox(bridge, distance, 0.3, 3);
   }
   
   /**
@@ -379,6 +400,9 @@ class VerticalMapGenerator {
     
     this.scene.add(elevator);
     this.structures.push(elevator);
+    
+    // Add physics collider for elevator
+    this.createPhysicsCylinder(elevator, 2, 0.5);
     
     return elevator;
   }
@@ -442,6 +466,11 @@ class VerticalMapGenerator {
       }
       
       elevator.position.y = userData.currentY;
+      
+      // Synchronize physics body if exists
+      if (elevator.userData.physicsBody) {
+        elevator.userData.physicsBody.position.copy(elevator.position);
+      }
     }
   }
   
@@ -468,6 +497,19 @@ class VerticalMapGenerator {
         // Collapse animation
         platform.material.opacity -= delta * 0.5;
         platform.position.y -= delta * 2;
+        
+        // Remove physics body when collapsing starts
+        if (userData.physicsBody && !userData.physicsBodyRemoved) {
+          if (this.world) {
+            this.world.removeBody(userData.physicsBody);
+            // Remove from tracking array to prevent memory leaks
+            const index = this.physicsBodies.indexOf(userData.physicsBody);
+            if (index > -1) {
+              this.physicsBodies.splice(index, 1);
+            }
+          }
+          userData.physicsBodyRemoved = true;
+        }
         
         if (platform.material.opacity <= 0) {
           this.scene.remove(platform);
@@ -503,13 +545,68 @@ class VerticalMapGenerator {
   }
   
   /**
+   * Create physics box collider for a mesh
+   */
+  createPhysicsBox(mesh, width, height, depth) {
+    if (!this.world || !window.CANNON) return;
+    
+    const shape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2));
+    const body = new CANNON.Body({
+      mass: 0, // Static body
+      shape: shape,
+      position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+      quaternion: new CANNON.Quaternion(
+        mesh.quaternion.x,
+        mesh.quaternion.y,
+        mesh.quaternion.z,
+        mesh.quaternion.w
+      )
+    });
+    
+    this.world.addBody(body);
+    this.physicsBodies.push(body);
+    mesh.userData.physicsBody = body;
+  }
+  
+  /**
+   * Create physics cylinder collider for a mesh
+   */
+  createPhysicsCylinder(mesh, radius, height) {
+    if (!this.world || !window.CANNON) return;
+    
+    const shape = new CANNON.Cylinder(radius, radius, height, 16);
+    const body = new CANNON.Body({
+      mass: 0, // Static body
+      shape: shape,
+      position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+      quaternion: new CANNON.Quaternion(
+        mesh.quaternion.x,
+        mesh.quaternion.y,
+        mesh.quaternion.z,
+        mesh.quaternion.w
+      )
+    });
+    
+    this.world.addBody(body);
+    this.physicsBodies.push(body);
+    mesh.userData.physicsBody = body;
+  }
+  
+  /**
    * Clear existing map
    */
   clearMap() {
     this.zones.forEach(zone => this.scene.remove(zone));
     this.structures.forEach(structure => this.scene.remove(structure));
+    
+    // Remove physics bodies
+    if (this.world) {
+      this.physicsBodies.forEach(body => this.world.removeBody(body));
+    }
+    
     this.zones = [];
     this.structures = [];
+    this.physicsBodies = [];
   }
 }
 
