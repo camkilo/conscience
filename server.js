@@ -59,12 +59,22 @@ app.use('/cannon-es', express.static('node_modules/cannon-es/dist', {
 // Root endpoint
 // Note: In production, add rate limiting middleware (e.g., express-rate-limit)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
 });
 
 // Serve game.html explicitly for Vercel routing
 app.get('/game.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'game.html'));
+  res.sendFile(path.join(__dirname, 'public', 'game.html'), (err) => {
+    if (err) {
+      console.error('Error serving game.html:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
 });
 
 // Health check endpoint
