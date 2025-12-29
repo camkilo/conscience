@@ -16,7 +16,9 @@ app.use(express.static('public', {
     // Set proper MIME type for GLB files
     if (path.endsWith('.glb')) {
       res.setHeader('Content-Type', 'model/gltf-binary');
-      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+      // Use shorter cache in development, longer in production
+      const cacheMaxAge = process.env.NODE_ENV === 'production' ? 31536000 : 3600;
+      res.setHeader('Cache-Control', `public, max-age=${cacheMaxAge}`);
     }
     // Set CORS headers for all assets
     res.setHeader('Access-Control-Allow-Origin', '*');

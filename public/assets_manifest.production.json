@@ -6,11 +6,14 @@
   "characters": {
     "player": {
       "url": "https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb",
-      "animations": ["idle", "run", "jump", "attack"]
+      "animations": ["idle", "run", "jump", "attack"],
+      "_note": "URL contains encoded space (%20) - browser handles this automatically"
     },
     "enemy_basic": {
       "url": "https://playconscience.com/Meshy_AI_biped%204/Meshy_AI_Character_output.glb",
-      "animations": ["idle", "walk", "attack", "death"]
+      "animations": ["idle", "walk", "attack", "death"],
+      "_note": "URL contains encoded space (%20) - browser handles this automatically"
     }
-  }
+  },
+  "_readme": "This manifest uses production URLs from playconscience.com. Ensure CORS is properly configured on the production server."
 }
