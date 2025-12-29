@@ -9,7 +9,23 @@ const sessions = new Map();
 
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
+
+// Configure MIME types and cache headers for static assets
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    // Set proper MIME type for GLB files
+    if (path.endsWith('.glb')) {
+      res.setHeader('Content-Type', 'model/gltf-binary');
+      // Use shorter cache in development, longer in production
+      const cacheMaxAge = process.env.NODE_ENV === 'production' ? 31536000 : 3600;
+      res.setHeader('Cache-Control', `public, max-age=${cacheMaxAge}`);
+    }
+    // Set CORS headers for all assets
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  }
+}));
+
 app.use('/three', express.static('node_modules/three/build'));
 app.use('/three-jsm', express.static('node_modules/three/examples/jsm'));
 app.use('/cannon-es', express.static('node_modules/cannon-es/dist'));

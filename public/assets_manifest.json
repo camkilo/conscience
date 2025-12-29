@@ -1,9 +1,7 @@
 {
   "environment": {
     "floor": "/assets/floor.glb",
-    "ramp": "/assets/ramp.glb",
-    "wall": "/assets/ramp.glb",
-    "platform": "/assets/floor.glb"
+    "ramp": "/assets/ramp.glb"
   },
   "characters": {
     "player": {
