@@ -580,8 +580,13 @@ class Game3D {
     
     // Initialize Vertical Map Generator
     if (window.VerticalMapGenerator) {
-      this.mapGenerator = new window.VerticalMapGenerator(this.scene);
+      this.mapGenerator = new window.VerticalMapGenerator(this.scene, this.world);
       this.addDiagnosticMessage('✓ Vertical Map Generator initialized', 'success');
+      
+      // Generate the full map with behavior zones, platforms, ramps, and elevators
+      this.addDiagnosticMessage('Generating full vertical map...', 'info');
+      this.mapGenerator.generateMap();
+      this.addDiagnosticMessage('✓ Full map generated with behavior zones', 'success');
     }
     
     this.addDiagnosticMessage('Conscience Engine initialized successfully!', 'success');
