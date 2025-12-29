@@ -43,11 +43,14 @@ class Game3D {
     this.playerMaxHealth = 100;
     this.playerEnergy = 100;
     this.playerScore = 0;
+    this.comboCounter = 0;
+    this.comboTimer = 0;
+    this.scoreMultiplier = 1;
     
     // Movement physics configuration (force-based)
     this.physics = {
       moveForce: 30,      // Force applied for movement
-      maxSpeed: 8,        // Maximum velocity
+      maxSpeed: 10,       // Maximum velocity (increased for better gameplay)
       jumpForce: 15,      // Jump force
       damping: 0.9        // Linear damping for friction
     };
@@ -618,6 +621,11 @@ class Game3D {
     this.addDiagnosticMessage('Spawning health pickups...', 'info');
     this.spawnHealthPickups(8);
     this.addDiagnosticMessage('✓ Health pickups spawned', 'success');
+    
+    // Add environmental obstacles for cover and tactical gameplay
+    this.addDiagnosticMessage('Adding environmental obstacles...', 'info');
+    this.createEnvironmentalObstacles();
+    this.addDiagnosticMessage('✓ Environmental obstacles added', 'success');
     
     // Create player with GLB model
     this.addDiagnosticMessage('Loading player model...', 'info');
@@ -1341,6 +1349,90 @@ class Game3D {
   }
   
   /**
+   * Create environmental obstacles for cover and tactical gameplay
+   */
+  createEnvironmentalObstacles() {
+    // Add cover blocks scattered around the map
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const distance = 10 + Math.random() * 35;
+      const position = new THREE.Vector3(
+        Math.cos(angle) * distance,
+        1,
+        Math.sin(angle) * distance
+      );
+      
+      // Random sized obstacles
+      const width = 2 + Math.random() * 2;
+      const height = 1.5 + Math.random() * 2;
+      const depth = 2 + Math.random() * 2;
+      
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x444444,
+        roughness: 0.8,
+        metalness: 0.2
+      });
+      const obstacle = new THREE.Mesh(geometry, material);
+      obstacle.position.copy(position);
+      obstacle.position.y = height / 2;
+      obstacle.castShadow = true;
+      obstacle.receiveShadow = true;
+      
+      this.scene.add(obstacle);
+      
+      // Add physics collider for obstacle
+      if (this.world) {
+        const shape = new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2));
+        const body = new CANNON.Body({
+          mass: 0, // static
+          shape: shape,
+          position: new CANNON.Vec3(position.x, height/2, position.z)
+        });
+        this.world.addBody(body);
+        this.physicsBodies.push(body);
+      }
+    }
+    
+    // Add some tall pillars for vertical interest
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + Math.PI / 12;
+      const distance = 40 + Math.random() * 20;
+      const position = new THREE.Vector3(
+        Math.cos(angle) * distance,
+        0,
+        Math.sin(angle) * distance
+      );
+      
+      const geometry = new THREE.CylinderGeometry(1, 1, 8, 8);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x555555,
+        roughness: 0.7,
+        metalness: 0.3
+      });
+      const pillar = new THREE.Mesh(geometry, material);
+      pillar.position.copy(position);
+      pillar.position.y = 4;
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      
+      this.scene.add(pillar);
+      
+      // Add physics collider
+      if (this.world) {
+        const shape = new CANNON.Cylinder(1, 1, 8, 8);
+        const body = new CANNON.Body({
+          mass: 0,
+          shape: shape,
+          position: new CANNON.Vec3(position.x, 4, position.z)
+        });
+        this.world.addBody(body);
+        this.physicsBodies.push(body);
+      }
+    }
+  }
+  
+  /**
    * Spawn health pickups around the map
    */
   spawnHealthPickups(count) {
@@ -1777,7 +1869,7 @@ class Game3D {
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     `;
     scoreContainer.innerHTML = `
-      <div>SCORE: <span id="game-score">0</span></div>
+      <div>SCORE: <span id="game-score">0</span> <span id="combo-display" style="color: #ffaa00; font-size: 16px; margin-left: 10px;"></span></div>
     `;
     hudContainer.appendChild(scoreContainer);
     
@@ -1998,9 +2090,21 @@ class Game3D {
         
         if (enemy.userData.health <= 0) {
           this.removeEnemy(enemy);
-          this.playerScore += 100;
+          
+          // Combo system
+          this.comboCounter++;
+          this.comboTimer = 3; // 3 seconds to keep combo
+          this.scoreMultiplier = Math.min(5, 1 + (this.comboCounter * 0.5));
+          
+          const scoreGain = Math.floor(100 * this.scoreMultiplier);
+          this.playerScore += scoreGain;
           this.updateScore();
-          this.showNotification('+100 Score!', 'info');
+          
+          if (this.comboCounter > 1) {
+            this.showNotification(`COMBO x${this.comboCounter}! +${scoreGain} Score!`, 'ability');
+          } else {
+            this.showNotification('+100 Score!', 'info');
+          }
         }
       }
     });
@@ -2209,8 +2313,20 @@ class Game3D {
       this.enemies.splice(index, 1);
     }
     
-    // Spawn new enemy to maintain population
-    setTimeout(() => this.spawnEnemies(1), 3000);
+    // Check if we need to spawn more enemies to maintain challenge
+    if (this.enemies.length < 5) {
+      // Spawn new wave with more enemies
+      setTimeout(() => {
+        const spawnCount = Math.min(3, 9 - this.enemies.length);
+        this.spawnNewEnemies(
+          Math.floor(spawnCount * 0.4), // Observers
+          Math.floor(spawnCount * 0.4), // Punishers
+          Math.floor(spawnCount * 0.2), // Distorters
+          0
+        );
+        this.showNotification('New enemies approaching!', 'warning');
+      }, 5000);
+    }
   }
   
   /**
@@ -2238,6 +2354,14 @@ class Game3D {
    */
   updateScore() {
     document.getElementById('game-score').textContent = this.playerScore;
+    
+    // Update combo display
+    const comboDisplay = document.getElementById('combo-display');
+    if (comboDisplay && this.comboCounter > 1) {
+      comboDisplay.textContent = `COMBO x${this.comboCounter}`;
+    } else if (comboDisplay) {
+      comboDisplay.textContent = '';
+    }
   }
   
   /**
@@ -3394,6 +3518,16 @@ class Game3D {
       this.updateParticles(delta);
       this.updateCamera(delta);
       this.updateInteractiveElements(delta);
+      
+      // Update combo timer
+      if (this.comboTimer > 0) {
+        this.comboTimer -= delta;
+        if (this.comboTimer <= 0) {
+          this.comboCounter = 0;
+          this.scoreMultiplier = 1;
+          this.updateScore();
+        }
+      }
     }
     
     this.updateHUD();
