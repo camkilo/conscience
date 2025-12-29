@@ -174,11 +174,40 @@ class Game3D {
   }
   
   /**
-   * Load assets manifest
+   * Load assets manifest - automatically selects production manifest in production environment
    */
   async loadAssetsManifest() {
     try {
-      const response = await fetch('/assets_manifest.json');
+      // Determine which manifest to load based on hostname
+      const isProduction = window.location.hostname !== 'localhost' && 
+                          window.location.hostname !== '127.0.0.1';
+      
+      // Try production manifest first in production environment
+      const manifestUrl = isProduction ? '/assets_manifest.production.json' : '/assets_manifest.json';
+      
+      if (this.diagnosticMessages) {
+        this.addDiagnosticMessage(`Loading assets manifest: ${manifestUrl}`, 'info');
+      }
+      console.log(`📦 Loading assets manifest from: ${manifestUrl}`);
+      
+      const response = await fetch(manifestUrl);
+      
+      if (!response.ok) {
+        // Fallback to default manifest if production manifest not found
+        if (isProduction) {
+          console.warn('Production manifest not found, falling back to default');
+          if (this.diagnosticMessages) {
+            this.addDiagnosticMessage('Production manifest not found, using fallback', 'warning');
+          }
+          const fallbackResponse = await fetch('/assets_manifest.json');
+          const manifest = await fallbackResponse.json();
+          this.assetsManifest = manifest;
+          console.log('✓ Assets manifest loaded (fallback):', manifest);
+          return manifest;
+        }
+        throw new Error(`Failed to load manifest: ${response.status}`);
+      }
+      
       const manifest = await response.json();
       this.assetsManifest = manifest;
       console.log('✓ Assets manifest loaded:', manifest);

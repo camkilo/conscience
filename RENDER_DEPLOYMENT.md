@@ -1,12 +1,28 @@
 # Render Deployment Guide for Conscience Game
 
-This guide provides complete instructions for deploying the Conscience game to Render.com with full GLB asset support.
+This guide provides complete instructions for deploying the Conscience game to Render.com with full GLB asset support, including automatic loading of production 3D models.
 
 ## Prerequisites
 
 - GitHub account with this repository
 - Render account (free tier works)
-- GLB model files in `/public/assets/` directory
+- GLB model files accessible via production URLs (in `assets_manifest.production.json`)
+
+## Important: Production 3D Models
+
+The game automatically detects production environments and loads high-quality 3D models from external URLs:
+
+**Local Development (localhost):**
+- Uses `/assets_manifest.json` 
+- Loads placeholder GLB files from `/assets/*.glb` (452-456 bytes each)
+- Shows simple geometric shapes (triangles, boxes)
+
+**Production Deployment (Render):**
+- Automatically uses `/assets_manifest.production.json`
+- Loads full 3D models from `https://playconscience.com/`
+- Shows detailed biped characters, textured floors, and modular ramps
+
+**The manifest switching is automatic** - no configuration needed! The game detects non-localhost hostnames and switches manifests automatically.
 
 ## Overview
 
@@ -59,6 +75,68 @@ services:
         name: Access-Control-Allow-Origin
         value: "*"
 ```
+
+## How Production Model Loading Works
+
+The game automatically switches between local placeholder models and production models:
+
+### Automatic Environment Detection
+
+```javascript
+// In game3d.js - loadAssetsManifest()
+const isProduction = window.location.hostname !== 'localhost' && 
+                    window.location.hostname !== '127.0.0.1';
+
+const manifestUrl = isProduction 
+  ? '/assets_manifest.production.json'  // Production: External URLs
+  : '/assets_manifest.json';             // Local: Placeholder files
+```
+
+### What This Means
+
+1. **On localhost** (development):
+   - Loads `/assets_manifest.json`
+   - Uses small placeholder GLB files (452-456 bytes)
+   - Shows geometric placeholders (triangles, boxes, simple shapes)
+   - Fast loading, no external dependencies
+
+2. **On Render.com** (production):
+   - Automatically loads `/assets_manifest.production.json`
+   - Fetches full 3D models from `https://playconscience.com/`
+   - Shows detailed biped characters, textured environments
+   - Full quality models with animations
+
+3. **Fallback Safety**:
+   - If production manifest fails to load, falls back to local manifest
+   - Ensures game always works, even if external URLs are down
+   - Logs warnings to console for debugging
+
+### Production Manifest Contents
+
+```json
+{
+  "environment": {
+    "floor": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228005445_texture.glb",
+    "ramp": "https://playconscience.com/Meshy_AI_sci_fi_modular_gaming_1228003721_texture.glb"
+  },
+  "characters": {
+    "player": {
+      "url": "https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb"
+    },
+    "enemy_basic": {
+      "url": "https://playconscience.com/Meshy_AI_biped%204/Meshy_AI_Character_output.glb"
+    }
+  }
+}
+```
+
+**Note**: The production URLs must:
+- Be publicly accessible
+- Return proper `Content-Type: model/gltf-binary` headers
+- Have CORS enabled (`Access-Control-Allow-Origin: *`)
+- Contain valid GLB files
+
+If any production URL fails, the game falls back to procedural geometry for that asset.
 
 ## Deployment Steps
 
