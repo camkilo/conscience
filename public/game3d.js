@@ -512,8 +512,8 @@ class Game3D {
         0.1,
         1000
       );
-      // Position camera above ground, looking at center
-      this.camera.position.set(0, 10, 15);
+      // Position camera above ground, looking at ground level
+      this.camera.position.set(0, 10, 20);
       this.camera.lookAt(0, 0, 0);
       this.addDiagnosticMessage(`✓ Camera active at position (${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`, 'success');
       this.addDiagnosticMessage(`Camera looking at origin, frustum visible: YES`, 'success');
@@ -534,7 +534,7 @@ class Game3D {
       this.addDiagnosticMessage('✓ Floor loaded successfully and visible', 'success');
       
       // Position camera above floor
-      this.camera.position.set(0, 10, 15);
+      this.camera.position.set(0, 10, 20);
       this.camera.lookAt(0, 0, 0);
       this.addDiagnosticMessage('✓ Camera positioned above floor', 'success');
       
@@ -596,6 +596,29 @@ class Game3D {
     await this.loadAdditionalEnvironmentAssets();
     this.addDiagnosticMessage('✓ Additional environment assets loaded', 'success');
     
+    // Spawn power-ups for player to collect
+    if (this.powerUpSystem) {
+      this.addDiagnosticMessage('Spawning power-ups...', 'info');
+      const powerUpTypes = ['TIME_SLOW', 'DAMAGE_BOOST', 'SPEED_SURGE'];
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        const distance = 20 + Math.random() * 30;
+        const position = new THREE.Vector3(
+          Math.cos(angle) * distance,
+          2,
+          Math.sin(angle) * distance
+        );
+        const type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+        this.powerUpSystem.createPowerUpPickup(position, type);
+      }
+      this.addDiagnosticMessage('✓ Power-ups spawned', 'success');
+    }
+    
+    // Add health pickups
+    this.addDiagnosticMessage('Spawning health pickups...', 'info');
+    this.spawnHealthPickups(8);
+    this.addDiagnosticMessage('✓ Health pickups spawned', 'success');
+    
     // Create player with GLB model
     this.addDiagnosticMessage('Loading player model...', 'info');
     await this.createPlayer();
@@ -603,7 +626,7 @@ class Game3D {
     
     // Create initial enemies with GLB models
     this.addDiagnosticMessage('Spawning enemies...', 'info');
-    await this.spawnNewEnemies(2, 1, 1, 0); // 2 Observers, 1 Punisher, 1 Distorter
+    await this.spawnNewEnemies(4, 3, 2, 0); // 4 Observers, 3 Punishers, 2 Distorters for more action
     this.addDiagnosticMessage('✓ Enemies spawned successfully', 'success');
     
     // Create HUD
@@ -703,9 +726,9 @@ class Game3D {
     
     const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
     
-    // Rotate to be horizontal and position below player
+    // Rotate to be horizontal and position at ground level (Y=0)
     floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.set(0, -5, 0);
+    floorMesh.position.set(0, 0, 0);
     floorMesh.receiveShadow = true;
     floorMesh.castShadow = false;
     
@@ -716,7 +739,7 @@ class Game3D {
         const floorBody = new CANNON.Body({
           mass: 0, // static
           shape: floorShape,
-          position: new CANNON.Vec3(0, -5, 0)
+          position: new CANNON.Vec3(0, 0, 0)
         });
         // Rotate to be horizontal (plane normal faces up)
         floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -762,7 +785,7 @@ class Game3D {
       const floorModel = floorGltf.scene;
       
       // Configure floor model
-      floorModel.position.set(0, -5, 0); // Position below player
+      floorModel.position.set(0, 0, 0); // Position at ground level
       floorModel.scale.set(2, 0.1, 2); // Flatten it to make it ground-like
       
       floorModel.traverse((node) => {
@@ -1281,7 +1304,7 @@ class Game3D {
     playerGroup.add(head);
     
     this.player = playerGroup;
-    this.player.position.set(0, 2, 0);
+    this.player.position.set(0, 3, 0); // Spawn above ground level
     this.scene.add(this.player);
     
     this.addDiagnosticMessage('✓ Procedural fallback player created', 'success');
@@ -1318,6 +1341,55 @@ class Game3D {
   }
   
   /**
+   * Spawn health pickups around the map
+   */
+  spawnHealthPickups(count) {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const distance = 15 + Math.random() * 40;
+      const position = new THREE.Vector3(
+        Math.cos(angle) * distance,
+        2,
+        Math.sin(angle) * distance
+      );
+      
+      // Create health pickup
+      const geometry = new THREE.SphereGeometry(0.5, 16, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.5,
+        roughness: 0.3,
+        metalness: 0.5
+      });
+      const pickup = new THREE.Mesh(geometry, material);
+      pickup.position.copy(position);
+      pickup.castShadow = true;
+      
+      // Add glow ring
+      const ringGeometry = new THREE.TorusGeometry(0.7, 0.1, 8, 16);
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.5
+      });
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.rotation.x = Math.PI / 2;
+      pickup.add(ring);
+      
+      pickup.userData = {
+        type: 'healthPickup',
+        healAmount: 40,
+        rotationSpeed: 2,
+        collected: false
+      };
+      
+      this.scene.add(pickup);
+      this.pickups.push(pickup);
+    }
+  }
+  
+  /**
    * Create player character - with fallback if GLB fails
    */
   async createPlayer() {
@@ -1335,7 +1407,7 @@ class Game3D {
         
         // Use loaded model
         this.player = gltf.scene;
-        this.player.position.set(0, 2, 0);
+        this.player.position.set(0, 3, 0); // Spawn above ground level
         this.player.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
         
         this.player.traverse((node) => {
@@ -1410,7 +1482,7 @@ class Game3D {
     this.playerBody = new CANNON.Body({
       mass: 1, // Dynamic body
       shape: capsuleShape,
-      position: new CANNON.Vec3(0, 2, 0),
+      position: new CANNON.Vec3(0, 3, 0), // Start above ground level
       linearDamping: this.physics.damping,
       angularDamping: 0.99, // Prevent rotation
       fixedRotation: false, // Allow controlled rotation
@@ -1465,7 +1537,7 @@ class Game3D {
       const distance = 30 + Math.random() * 30;
       const position = new THREE.Vector3(
         Math.cos(angle) * distance,
-        1,
+        2, // Spawn above ground level
         Math.sin(angle) * distance
       );
       
@@ -1876,6 +1948,7 @@ class Game3D {
     switch (index) {
       case 0: // Attack
         this.performAttack();
+        this.createAttackWave(); // Visual effect
         this.showNotification('Attack!', 'ability');
         break;
       case 1: // Defend
@@ -1899,21 +1972,43 @@ class Game3D {
    * Perform attack
    */
   performAttack() {
-    const attackRange = 5;
+    const attackRange = 8; // Increased range for better gameplay
+    const attackDamage = 35; // Increased damage for more effective combat
+    
+    let enemiesHit = 0;
     
     // Attack enemies
     this.enemies.forEach(enemy => {
       const distance = this.player.position.distanceTo(enemy.position);
       if (distance < attackRange) {
-        enemy.userData.health -= 30;
+        enemy.userData.health -= attackDamage;
         this.createHitEffect(enemy.position);
+        enemiesHit++;
+        
+        // Visual feedback - make enemy flash
+        if (enemy.material) {
+          const originalEmissive = enemy.material.emissiveIntensity;
+          enemy.material.emissiveIntensity = 1.5;
+          setTimeout(() => {
+            if (enemy.material) {
+              enemy.material.emissiveIntensity = originalEmissive;
+            }
+          }, 100);
+        }
+        
         if (enemy.userData.health <= 0) {
           this.removeEnemy(enemy);
           this.playerScore += 100;
           this.updateScore();
+          this.showNotification('+100 Score!', 'info');
         }
       }
     });
+    
+    // Show hit count
+    if (enemiesHit > 0) {
+      this.showNotification(`Hit ${enemiesHit} ${enemiesHit === 1 ? 'enemy' : 'enemies'}!`, 'ability');
+    }
     
     // Break nearby objects
     this.breakableObjects.forEach(crate => {
@@ -1948,6 +2043,38 @@ class Game3D {
       this.createMotionBlur();
       this.showNotification('Dash!', 'ability');
     }
+  }
+  
+  /**
+   * Create attack wave visual effect
+   */
+  createAttackWave() {
+    const geometry = new THREE.RingGeometry(2, 8, 32);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0x4488ff,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide
+    });
+    const wave = new THREE.Mesh(geometry, material);
+    wave.rotation.x = -Math.PI / 2;
+    wave.position.copy(this.player.position);
+    wave.position.y = 0.1;
+    this.scene.add(wave);
+    
+    // Animate wave expanding
+    let scale = 1;
+    const animate = () => {
+      scale += 0.3;
+      wave.scale.setScalar(scale);
+      wave.material.opacity -= 0.05;
+      if (wave.material.opacity > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        this.scene.remove(wave);
+      }
+    };
+    animate();
   }
   
   /**
@@ -2495,7 +2622,7 @@ class Game3D {
     this.player.position.add(currentVel.clone().multiplyScalar(delta));
     
     // Keep on ground and in bounds
-    this.player.position.y = 2;
+    this.player.position.y = 3; // Keep player above ground level
     this.player.position.x = Math.max(-90, Math.min(90, this.player.position.x));
     this.player.position.z = Math.max(-90, Math.min(90, this.player.position.z));
     
@@ -2757,7 +2884,7 @@ class Game3D {
   restartGame() {
     // Reset player
     this.playerHealth = this.playerMaxHealth;
-    this.player.position.set(0, 1, 0);
+    this.player.position.set(0, 3, 0); // Spawn above ground level
     this.player.userData.velocity.set(0, 0, 0);
     
     // Remove all enemies
@@ -3041,6 +3168,50 @@ class Game3D {
     pickup.userData.collected = true;
     this.scene.remove(pickup);
     
+    // Handle health pickups
+    if (pickup.userData.type === 'healthPickup') {
+      const healAmount = pickup.userData.healAmount || 30;
+      this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + healAmount);
+      this.showNotification(`+${healAmount} Health`, 'info');
+      
+      // Create heal effect
+      const geometry = new THREE.SphereGeometry(1, 16, 16);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.6
+      });
+      const healEffect = new THREE.Mesh(geometry, material);
+      healEffect.position.copy(this.player.position);
+      this.scene.add(healEffect);
+      
+      let scale = 1;
+      const animate = () => {
+        scale += 0.2;
+        healEffect.scale.setScalar(scale);
+        healEffect.material.opacity -= 0.05;
+        if (healEffect.material.opacity > 0) {
+          requestAnimationFrame(animate);
+        } else {
+          this.scene.remove(healEffect);
+        }
+      };
+      animate();
+      
+      // Respawn health pickup after delay
+      setTimeout(() => {
+        pickup.userData.collected = false;
+        pickup.position.set(
+          (Math.random() - 0.5) * 80,
+          2,
+          (Math.random() - 0.5) * 80
+        );
+        this.scene.add(pickup);
+      }, 20000);
+      return;
+    }
+    
+    // Handle other pickup types
     switch (pickup.userData.pickupType) {
       case 'health':
         this.playerHealth = Math.min(100, this.playerHealth + 30);
@@ -3063,7 +3234,7 @@ class Game3D {
       pickup.userData.collected = false;
       pickup.position.set(
         (Math.random() - 0.5) * 80,
-        1,
+        2,
         (Math.random() - 0.5) * 80
       );
       this.scene.add(pickup);
