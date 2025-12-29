@@ -64,8 +64,8 @@ class Game3D {
     
     // Configuration
     this.config = {
-      meshyCharacterPath: 'https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb',
-      playerModelPath: 'https://playconscience.com/Meshy_AI_biped%202/Meshy_AI_Character_output.glb',
+      meshyCharacterPath: '/assets/player.glb',
+      playerModelPath: '/assets/player.glb',
       usePhysics: true
     };
     
@@ -224,8 +224,7 @@ class Game3D {
           if (this.diagnosticMessages) {
             this.addDiagnosticMessage(errorMsg, 'error');
           }
-          // Show critical error overlay
-          this.showCriticalError(errorMsg);
+          // Don't show critical error overlay - let caller handle fallback
           reject(new Error(errorMsg));
         }
       );
@@ -470,8 +469,8 @@ class Game3D {
       this.addDebugHelpers();
       this.addDiagnosticMessage('✓ Debug helpers added', 'success');
       
-      // STEP 5: Load FLOOR first (REQUIRED - DO NOT CONTINUE IF FAILS)
-      this.addDiagnosticMessage('Loading floor asset (CRITICAL)...', 'info');
+      // STEP 5: Load FLOOR first (with fallback if it fails)
+      this.addDiagnosticMessage('Loading floor asset...', 'info');
       await this.loadFloorAsset();
       this.addDiagnosticMessage('✓ Floor loaded successfully and visible', 'success');
       
@@ -622,15 +621,71 @@ class Game3D {
   }
   
   /**
-   * Load floor asset FIRST - CRITICAL, blocks initialization if fails
+   * Create a procedural fallback floor when GLB fails to load
    */
-  async loadFloorAsset() {
-    if (!this.gltfLoader) {
-      throw new Error('❌ GLTFLoader not available');
+  createFallbackFloor() {
+    this.addDiagnosticMessage('Creating procedural fallback floor...', 'info');
+    
+    // Create a large plane geometry for the floor
+    const floorGeometry = new THREE.PlaneGeometry(200, 200, 20, 20);
+    
+    // Create a material with grid pattern
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x333344,
+      roughness: 0.8,
+      metalness: 0.2,
+      side: THREE.DoubleSide
+    });
+    
+    const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+    
+    // Rotate to be horizontal and position below player
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.set(0, -5, 0);
+    floorMesh.receiveShadow = true;
+    floorMesh.castShadow = false;
+    
+    // Add physics collider if physics world exists
+    if (this.world) {
+      try {
+        const floorShape = new CANNON.Plane();
+        const floorBody = new CANNON.Body({
+          mass: 0, // static
+          shape: floorShape,
+          position: new CANNON.Vec3(0, -5, 0)
+        });
+        // Rotate to be horizontal (plane normal faces up)
+        floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        this.world.addBody(floorBody);
+        this.physicsBodies.push(floorBody);
+        this.addDiagnosticMessage('✓ Fallback floor physics collider created', 'success');
+      } catch (physicsError) {
+        this.addDiagnosticMessage(`⚠️ Could not create physics for fallback floor: ${physicsError.message}`, 'warning');
+      }
     }
     
+    this.scene.add(floorMesh);
+    this.environmentModels = { floor: floorMesh };
+    
+    this.addDiagnosticMessage('✓ Procedural fallback floor created successfully', 'success');
+    
+    return floorMesh;
+  }
+  
+  /**
+   * Load floor asset FIRST - with fallback if it fails
+   */
+  async loadFloorAsset() {
+    // Check if GLTFLoader is available
+    if (!this.gltfLoader) {
+      this.addDiagnosticMessage('⚠️ GLTFLoader not available, using fallback floor', 'warning');
+      return this.createFallbackFloor();
+    }
+    
+    // Check if manifest has floor URL
     if (!this.assetsManifest || !this.assetsManifest.environment || !this.assetsManifest.environment.floor) {
-      throw new Error('❌ No floor asset URL in manifest');
+      this.addDiagnosticMessage('⚠️ No floor asset URL in manifest, using fallback floor', 'warning');
+      return this.createFallbackFloor();
     }
     
     const floorUrl = this.assetsManifest.environment.floor;
@@ -668,10 +723,15 @@ class Game3D {
       
       this.addDiagnosticMessage(`✓ Asset loaded successfully: floor`, 'success');
       
+      return floorModel;
+      
     } catch (error) {
-      const errorMsg = `❌ FAILED TO LOAD: floor\nURL: ${floorUrl}\nError: ${error.message}`;
-      this.addDiagnosticMessage(errorMsg, 'error');
-      throw new Error(`CRITICAL: Cannot start without floor - ${error.message}`);
+      // Log the error but use fallback instead of crashing
+      const errorMsg = `⚠️ Failed to load floor asset: ${error.message}`;
+      this.addDiagnosticMessage(errorMsg, 'warning');
+      this.addDiagnosticMessage('Using procedural fallback floor instead', 'info');
+      
+      return this.createFallbackFloor();
     }
   }
   
@@ -1121,57 +1181,132 @@ class Game3D {
   }
   
   /**
-   * Create player character - MUST use GLB model
+   * Create a procedural fallback player when GLB fails to load
+   */
+  createFallbackPlayer() {
+    this.addDiagnosticMessage('Creating procedural fallback player...', 'info');
+    
+    // Create a simple capsule-like shape for the player
+    const playerGroup = new THREE.Group();
+    
+    // Body (cylinder)
+    const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.2, 16);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3366ff,
+      roughness: 0.5,
+      metalness: 0.5
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    
+    // Head (sphere)
+    const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const headMaterial = new THREE.MeshStandardMaterial({
+      color: 0x4477ff,
+      roughness: 0.5,
+      metalness: 0.3
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 1.5;
+    head.castShadow = true;
+    head.receiveShadow = true;
+    
+    playerGroup.add(body);
+    playerGroup.add(head);
+    
+    this.player = playerGroup;
+    this.player.position.set(0, 2, 0);
+    this.scene.add(this.player);
+    
+    this.addDiagnosticMessage('✓ Procedural fallback player created', 'success');
+    
+    return this.player;
+  }
+  
+  /**
+   * Create a procedural fallback enemy when GLB fails to load
+   */
+  createFallbackEnemy(position, enemyType) {
+    // Create a simple geometric shape for the enemy
+    const enemyGroup = new THREE.Group();
+    
+    const size = enemyType.size || 0.5;
+    const color = enemyType.color || 0xff4444;
+    
+    // Body (box or sphere based on tier)
+    const bodyGeometry = new THREE.BoxGeometry(size, size * 1.5, size);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = size * 0.75;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    
+    enemyGroup.add(body);
+    enemyGroup.position.copy(position);
+    
+    return enemyGroup;
+  }
+  
+  /**
+   * Create player character - with fallback if GLB fails
    */
   async createPlayer() {
     if (!this.assetsManifest || !this.assetsManifest.characters || !this.assetsManifest.characters.player) {
-      throw new Error('❌ CRITICAL: No player model in manifest');
-    }
-    
-    const playerData = this.assetsManifest.characters.player;
-    
-    this.addDiagnosticMessage(`Loading player model from ${playerData.url}...`, 'info');
-    
-    try {
-      // Load player GLB model - REQUIRED
-      const gltf = await this.loadGLBModel(playerData.url, 'Player');
+      this.addDiagnosticMessage('⚠️ No player model in manifest, using fallback', 'warning');
+      this.createFallbackPlayer();
+    } else {
+      const playerData = this.assetsManifest.characters.player;
       
-      // Use loaded model
-      this.player = gltf.scene;
-      this.player.position.set(0, 2, 0);
-      this.player.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+      this.addDiagnosticMessage(`Loading player model from ${playerData.url}...`, 'info');
       
-      this.player.traverse((node) => {
-        if (node.isMesh) {
-          node.castShadow = true;
-          node.receiveShadow = true;
-        }
-      });
-      
-      this.scene.add(this.player);
-      this.addDiagnosticMessage(`✓ Player model loaded and positioned at (0, 2, 0)`, 'success');
-      
-      // Store animations if available
-      if (gltf.animations && gltf.animations.length > 0) {
-        this.mixer = new THREE.AnimationMixer(this.player);
-        this.playerAnimations = {};
+      try {
+        // Load player GLB model
+        const gltf = await this.loadGLBModel(playerData.url, 'Player');
         
-        gltf.animations.forEach(clip => {
-          this.addDiagnosticMessage(`✓ Player animation available: ${clip.name}`, 'success');
-          this.playerAnimations[clip.name] = this.mixer.clipAction(clip);
+        // Use loaded model
+        this.player = gltf.scene;
+        this.player.position.set(0, 2, 0);
+        this.player.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+        
+        this.player.traverse((node) => {
+          if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
         });
         
-        // Play idle animation by default
-        if (this.playerAnimations['idle']) {
-          this.playerAnimations['idle'].play();
+        this.scene.add(this.player);
+        this.addDiagnosticMessage(`✓ Player model loaded and positioned at (0, 2, 0)`, 'success');
+        
+        // Store animations if available
+        if (gltf.animations && gltf.animations.length > 0) {
+          this.mixer = new THREE.AnimationMixer(this.player);
+          this.playerAnimations = {};
+          
+          gltf.animations.forEach(clip => {
+            this.addDiagnosticMessage(`✓ Player animation available: ${clip.name}`, 'success');
+            this.playerAnimations[clip.name] = this.mixer.clipAction(clip);
+          });
+          
+          // Play idle animation by default
+          if (this.playerAnimations['idle']) {
+            this.playerAnimations['idle'].play();
+          }
+        } else {
+          this.addDiagnosticMessage('⚠️ No animations found in player GLB model', 'warning');
         }
-      } else {
-        this.addDiagnosticMessage('⚠️ No animations found in player GLB model', 'warning');
+      } catch (error) {
+        // Use fallback instead of crashing
+        this.addDiagnosticMessage(`⚠️ Failed to load player model: ${error.message}`, 'warning');
+        this.addDiagnosticMessage('Using procedural fallback player instead', 'info');
+        this.createFallbackPlayer();
       }
-    } catch (error) {
-      // CRITICAL: No fallback allowed
-      this.addDiagnosticMessage(`❌ CRITICAL: Failed to load player model`, 'error');
-      throw new Error('❌ CRITICAL: Failed to load player model - game cannot start');
     }
     
     // Initialize player userData (MUST be done before any update loops)
@@ -1235,31 +1370,31 @@ class Game3D {
    */
   
   /**
-   * Spawn new enemies using GLB models ONLY
+   * Spawn new enemies with fallback support
    */
   async spawnNewEnemies(observerCount, punisherCount, distorterCount, normalCount = 0) {
-    if (!this.assetsManifest || !this.assetsManifest.characters || !this.assetsManifest.characters.enemy_basic) {
-      this.addDiagnosticMessage('❌ No enemy model in manifest', 'error');
-      console.error('❌ No enemy model in manifest');
-      return;
-    }
-    
-    const enemyData = this.assetsManifest.characters.enemy_basic;
-    
-    this.addDiagnosticMessage(`Loading enemy model from ${enemyData.url}...`, 'info');
-    
-    // Load enemy GLB model once
-    let enemyGltf;
-    try {
-      enemyGltf = await this.loadGLBModel(enemyData.url, 'Enemy');
-    } catch (error) {
-      this.addDiagnosticMessage('❌ Failed to load enemy model, cannot spawn enemies', 'error');
-      console.error('❌ Failed to load enemy model, cannot spawn enemies');
-      return;
-    }
-    
     const totalEnemies = observerCount + punisherCount + distorterCount + normalCount;
     this.addDiagnosticMessage(`Spawning ${totalEnemies} enemies...`, 'info');
+    
+    // Try to load enemy model if manifest exists
+    let enemyGltf = null;
+    let useFallback = false;
+    
+    if (this.assetsManifest && this.assetsManifest.characters && this.assetsManifest.characters.enemy_basic) {
+      const enemyData = this.assetsManifest.characters.enemy_basic;
+      this.addDiagnosticMessage(`Loading enemy model from ${enemyData.url}...`, 'info');
+      
+      try {
+        enemyGltf = await this.loadGLBModel(enemyData.url, 'Enemy');
+      } catch (error) {
+        this.addDiagnosticMessage(`⚠️ Failed to load enemy model: ${error.message}`, 'warning');
+        this.addDiagnosticMessage('Using procedural fallback enemies instead', 'info');
+        useFallback = true;
+      }
+    } else {
+      this.addDiagnosticMessage('⚠️ No enemy model in manifest, using fallback', 'warning');
+      useFallback = true;
+    }
     
     const spawnEnemy = (type) => {
       const angle = Math.random() * Math.PI * 2;
@@ -1270,30 +1405,38 @@ class Game3D {
         Math.sin(angle) * distance
       );
       
-      // Clone the loaded model
-      const enemyModel = enemyGltf.scene.clone();
-      enemyModel.position.copy(position);
-      enemyModel.scale.set(0.4, 0.4, 0.4); // Adjust scale as needed
-      
-      enemyModel.traverse((node) => {
-        if (node.isMesh) {
-          node.castShadow = true;
-          node.receiveShadow = true;
-        }
-      });
-      
-      // Store animations if available
+      let enemyModel;
       let enemyMixer = null;
       let enemyAnimations = {};
-      if (enemyGltf.animations && enemyGltf.animations.length > 0) {
-        enemyMixer = new THREE.AnimationMixer(enemyModel);
-        enemyGltf.animations.forEach(clip => {
-          enemyAnimations[clip.name] = enemyMixer.clipAction(clip);
+      
+      if (useFallback || !enemyGltf) {
+        // Use procedural fallback
+        const enemyTypeConfig = this.enemyTypes[type.toLowerCase()] || this.enemyTypes.normal;
+        enemyModel = this.createFallbackEnemy(position, enemyTypeConfig);
+      } else {
+        // Clone the loaded model
+        enemyModel = enemyGltf.scene.clone();
+        enemyModel.position.copy(position);
+        enemyModel.scale.set(0.4, 0.4, 0.4); // Adjust scale as needed
+        
+        enemyModel.traverse((node) => {
+          if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
         });
         
-        // Play idle animation by default
-        if (enemyAnimations['idle']) {
-          enemyAnimations['idle'].play();
+        // Store animations if available
+        if (enemyGltf.animations && enemyGltf.animations.length > 0) {
+          enemyMixer = new THREE.AnimationMixer(enemyModel);
+          enemyGltf.animations.forEach(clip => {
+            enemyAnimations[clip.name] = enemyMixer.clipAction(clip);
+          });
+          
+          // Play idle animation by default
+          if (enemyAnimations['idle']) {
+            enemyAnimations['idle'].play();
+          }
         }
       }
       
@@ -1333,7 +1476,7 @@ class Game3D {
       // If using new enemy system, register with it
       if (this.enemySystem) {
         // The enemy system will handle AI behavior
-        console.log(`✓ Spawned ${type} enemy with GLB model`);
+        console.log(`✓ Spawned ${type} enemy`);
       }
     };
     
@@ -1341,7 +1484,8 @@ class Game3D {
     for (let i = 0; i < punisherCount; i++) spawnEnemy('PUNISHER');
     for (let i = 0; i < distorterCount; i++) spawnEnemy('DISTORTER');
     
-    console.log(`✓ Spawned ${observerCount + punisherCount + distorterCount} enemies from GLB models`);
+    this.addDiagnosticMessage(`✓ Spawned ${totalEnemies} enemies`, 'success');
+    console.log(`✓ Spawned ${totalEnemies} enemies`);
   }
   
   /**
