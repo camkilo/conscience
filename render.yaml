@@ -3,9 +3,25 @@ services:
     name: conscience-game
     env: node
     plan: free
-    buildCommand: npm install
+    region: oregon
+    buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
+    # Static file serving configuration
+    staticPublishPath: ./public
+    headers:
+      - path: /assets/*.glb
+        name: Content-Type
+        value: model/gltf-binary
+      - path: /assets/*.glb
+        name: Cache-Control
+        value: public, max-age=31536000
+      - path: /assets/*
+        name: Access-Control-Allow-Origin
+        value: "*"

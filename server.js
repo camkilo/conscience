@@ -1,5 +1,11 @@
 import express from 'express';
 import { GameSession } from './game-engine.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,7 +20,7 @@ app.use(express.json());
 app.use(express.static('public', {
   setHeaders: (res, path) => {
     // Set proper MIME type for GLB files
-    if (path.endsWith('.glb')) {
+    if (path.endsWith('.glb') || path.endsWith('.gltf')) {
       res.setHeader('Content-Type', 'model/gltf-binary');
       // Use shorter cache in development, longer in production
       const cacheMaxAge = process.env.NODE_ENV === 'production' ? 31536000 : 3600;
@@ -23,22 +29,75 @@ app.use(express.static('public', {
     // Set CORS headers for all assets
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  }
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  },
+  // Enable ETag for better performance
+  etag: true,
+  index: false
 }));
 
-app.use('/three', express.static('node_modules/three/build'));
-app.use('/three-jsm', express.static('node_modules/three/examples/jsm'));
-app.use('/cannon-es', express.static('node_modules/cannon-es/dist'));
+// Serve Three.js dependencies
+app.use('/three', express.static('node_modules/three/build', {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+app.use('/three-jsm', express.static('node_modules/three/examples/jsm', {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+app.use('/cannon-es', express.static('node_modules/cannon-es/dist', {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Root endpoint
 // Note: In production, add rate limiting middleware (e.g., express-rate-limit)
 app.get('/', (req, res) => {
-  res.sendFile('index.html', { root: 'public' });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: Date.now() });
+});
+
+// Assets verification endpoint - checks if GLB files are available
+app.get('/api/assets/verify', (req, res) => {
+  const assetsDir = path.join(__dirname, 'public', 'assets');
+  const requiredAssets = ['player.glb', 'enemy.glb', 'floor.glb', 'ramp.glb'];
+  
+  const assetStatus = {};
+  let allAvailable = true;
+  
+  requiredAssets.forEach(asset => {
+    const assetPath = path.join(assetsDir, asset);
+    const exists = fs.existsSync(assetPath);
+    const stats = exists ? fs.statSync(assetPath) : null;
+    
+    assetStatus[asset] = {
+      exists,
+      size: stats ? stats.size : 0,
+      path: `/assets/${asset}`,
+      mimeType: 'model/gltf-binary'
+    };
+    
+    if (!exists) {
+      allAvailable = false;
+    }
+  });
+  
+  res.json({
+    status: allAvailable ? 'ok' : 'partial',
+    message: allAvailable ? 'All assets available' : 'Some assets missing',
+    assets: assetStatus,
+    timestamp: Date.now()
+  });
 });
 
 // Start new game session

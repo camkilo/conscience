@@ -91,13 +91,51 @@ vercel
 
 ### Deploy to Render
 
-1. **Via Render Dashboard**:
-   - Create a new Web Service
-   - Connect your GitHub repository
-   - Render will auto-detect the configuration from `render.yaml`
+**Recommended for Production Deployment**
+
+Render provides reliable hosting with automatic SSL, health checks, and zero-downtime deploys.
+
+1. **Quick Deploy**:
+   - Push your code to GitHub
+   - Sign in to [Render](https://render.com)
+   - Click "New +" → "Web Service"
+   - Connect your repository
+   - Render auto-detects `render.yaml` configuration
    - Click "Create Web Service"
 
-2. **Via Render Blueprint**:
+2. **Configuration** (auto-detected from `render.yaml`):
+   - Build Command: `npm ci`
+   - Start Command: `npm start`
+   - Health Check: `/health`
+   - Environment: Node.js with production settings
+
+3. **Static Asset Serving**:
+   - GLB files automatically served with proper MIME types
+   - All assets cached appropriately (1 year in production)
+   - CORS headers configured for 3D model loading
+   - See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for complete guide
+
+4. **Verify Deployment**:
+   ```bash
+   # Test health endpoint
+   curl https://your-app.onrender.com/health
+   
+   # Verify assets are available
+   curl https://your-app.onrender.com/api/assets/verify
+   
+   # Check GLB file headers
+   curl -I https://your-app.onrender.com/assets/player.glb
+   ```
+
+**Important**: Render serves GLB files from `/public/assets/` with:
+- ✅ Content-Type: `model/gltf-binary`
+- ✅ Cache-Control: `public, max-age=31536000`
+- ✅ CORS enabled: `Access-Control-Allow-Origin: *`
+- ✅ No configuration needed - works out of the box!
+
+For detailed Render deployment instructions, see [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md).
+
+### Deploy to Vercel
    - The `render.yaml` file defines the service configuration
    - Automatically sets up health checks and environment
 
