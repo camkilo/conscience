@@ -275,10 +275,6 @@ class VerticalMapGenerator {
         break;
     }
   }
-        }
-        break;
-    }
-  }
   
   /**
    * Connect zones with ramps and bridges
