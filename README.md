@@ -72,26 +72,48 @@ npm start
 
 ## 🌐 Deployment
 
-### Deploy to Vercel
+### Deploy to Vercel (Recommended for Frontend)
 
-1. **Via Vercel CLI**:
-```bash
-npm install -g vercel
-vercel
-```
+**Quick and easy serverless deployment with automatic scaling**
 
-2. **Via Vercel Dashboard**:
+1. **Via Vercel Dashboard**:
    - Connect your GitHub repository to Vercel
+   - Click "Import Project"
    - Vercel will auto-detect the configuration from `vercel.json`
-   - Deploy with one click
+   - Deploy with one click - that's it!
 
-3. **Configuration**:
-   - The `vercel.json` file is already configured
-   - No additional environment variables required
+2. **Via Vercel CLI**:
+   ```bash
+   npm install -g vercel
+   vercel --prod
+   ```
+
+3. **Features**:
+   - ✅ Automatic SSL certificates
+   - ✅ Global CDN for fast asset delivery
+   - ✅ Serverless functions for API endpoints
+   - ✅ Automatic environment detection (dev/prod)
+   - ✅ 3D models served with proper MIME types
+   - ✅ Zero configuration needed - works out of the box!
+   - ✅ Free tier includes 100GB bandwidth/month
+
+4. **Verify Deployment**:
+   ```bash
+   # Test health endpoint
+   curl https://your-app.vercel.app/health
+   
+   # Verify assets are available
+   curl https://your-app.vercel.app/api/assets/verify
+   
+   # Check GLB file headers
+   curl -I https://your-app.vercel.app/assets/player.glb
+   ```
+
+**For detailed Vercel deployment instructions**, see [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md).
 
 ### Deploy to Render
 
-**Recommended for Production Deployment**
+**Alternative deployment option with always-on instances**
 
 Render provides reliable hosting with automatic SSL, health checks, and zero-downtime deploys.
 
@@ -113,36 +135,8 @@ Render provides reliable hosting with automatic SSL, health checks, and zero-dow
    - GLB files automatically served with proper MIME types
    - All assets cached appropriately (1 year in production)
    - CORS headers configured for 3D model loading
-   - See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for complete guide
 
-4. **Verify Deployment**:
-   ```bash
-   # Test health endpoint
-   curl https://your-app.onrender.com/health
-   
-   # Verify assets are available
-   curl https://your-app.onrender.com/api/assets/verify
-   
-   # Check GLB file headers
-   curl -I https://your-app.onrender.com/assets/player.glb
-   ```
-
-**Important**: Render serves GLB files from `/public/assets/` with:
-- ✅ Content-Type: `model/gltf-binary`
-- ✅ Cache-Control: `public, max-age=31536000`
-- ✅ CORS enabled: `Access-Control-Allow-Origin: *`
-- ✅ No configuration needed - works out of the box!
-
-For detailed Render deployment instructions, see [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md).
-
-### Deploy to Vercel
-   - The `render.yaml` file defines the service configuration
-   - Automatically sets up health checks and environment
-
-3. **Configuration**:
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-   - Health Check Path: `/health`
+**For detailed Render deployment instructions**, see [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md).
 
 ## 🏗️ Architecture
 
