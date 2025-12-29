@@ -50,19 +50,24 @@ requiredAssets.forEach(asset => {
   const exists = fs.existsSync(fullPath);
   
   if (exists) {
-    const stats = fs.statSync(fullPath);
-    const sizeKB = (stats.size / 1024).toFixed(2);
-    console.log(`  ✅ ${asset} (${sizeKB} KB)`);
-    
-    // Verify it's a valid GLB file (starts with 'glTF')
-    const buffer = Buffer.alloc(4);
-    const fd = fs.openSync(fullPath, 'r');
-    fs.readSync(fd, buffer, 0, 4, 0);
-    fs.closeSync(fd);
-    
-    const signature = buffer.toString('ascii');
-    if (signature !== 'glTF') {
-      console.log(`    ⚠️  Warning: File may not be a valid GLB (signature: ${signature})`);
+    try {
+      const stats = fs.statSync(fullPath);
+      const sizeKB = (stats.size / 1024).toFixed(2);
+      console.log(`  ✅ ${asset} (${sizeKB} KB)`);
+      
+      // Verify it's a valid GLB file (starts with 'glTF')
+      const buffer = Buffer.alloc(4);
+      const fd = fs.openSync(fullPath, 'r');
+      fs.readSync(fd, buffer, 0, 4, 0);
+      fs.closeSync(fd);
+      
+      const signature = buffer.toString('ascii');
+      if (signature !== 'glTF') {
+        console.log(`    ⚠️  Warning: File may not be a valid GLB (signature: ${signature})`);
+      }
+    } catch (error) {
+      console.log(`    ⚠️  Warning: Could not read file - ${error.message}`);
+      errors++;
     }
   } else {
     console.log(`  ❌ ${asset} (MISSING)`);
@@ -98,6 +103,6 @@ if (errors === 0) {
   console.log('='.repeat(50) + '\n');
   console.log('💡 To fix missing dependencies, run: npm install');
   console.log('💡 To add missing GLB files, add them to public/assets/');
-  console.log('💡 Note: Small GLB files (<1KB) are placeholders and will render as simple geometry\n');
+  console.log('💡 Note: Files with invalid GLB signatures will render as fallback geometry\n');
   process.exit(1);
 }

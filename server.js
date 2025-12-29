@@ -31,10 +31,9 @@ app.use(express.static('public', {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   },
-  // Enable ETag and index for better performance
+  // Enable ETag for better performance
   etag: true,
-  index: false,
-  maxAge: process.env.NODE_ENV === 'production' ? '1y' : '1h'
+  index: false
 }));
 
 // Serve Three.js dependencies
