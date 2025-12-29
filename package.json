@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "echo 'No build step required'"
+    "build": "node verify-assets.js",
+    "verify": "node verify-assets.js",
+    "postinstall": "node verify-assets.js || echo 'Warning: Asset verification failed'"
   },
   "engines": {
     "node": ">=18.0.0"
